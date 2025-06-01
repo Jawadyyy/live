@@ -8,6 +8,9 @@ authenticated -> profile page
  */
 
 import 'package:flutter/material.dart';
+import 'package:live/screens/auth/login_screen.dart';
+import 'package:live/screens/auth/signup_screen.dart';
+import 'package:live/screens/main/home.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthGate extends StatelessWidget {
@@ -32,9 +35,9 @@ class AuthGate extends StatelessWidget {
         final session = snapshot.hasData ? snapshot.data!.session : null;
 
         if (session != null) {
-          return SignUpPage();
+          return HomeScreen();
         } else {
-          return LoginPage();
+          return LoginScreen();
         }
       },
     );

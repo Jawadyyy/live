@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:live/auth/auth_gate.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() async {
@@ -21,7 +22,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      // home: ,
+      home: AuthGate(),
     );
   }
 }
