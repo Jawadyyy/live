@@ -9,7 +9,6 @@ authenticated -> profile page
 
 import 'package:flutter/material.dart';
 import 'package:live/screens/auth/login_screen.dart';
-import 'package:live/screens/auth/signup_screen.dart';
 import 'package:live/screens/main/home.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
