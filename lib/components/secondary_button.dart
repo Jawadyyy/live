@@ -1,49 +1,51 @@
 import 'package:flutter/material.dart';
 
-class MainButton extends StatelessWidget {
+class SecondButton extends StatelessWidget {
   final String text;
   final VoidCallback? onPressed;
   final bool isFullWidth;
   final bool isLoading;
-  final Color? buttonColor;
-  final Color? textColor;
+  final Color borderColor;
+  final double borderWidth;
+  final Color? textColor; // New optional parameter
 
-  const MainButton({
+  const SecondButton({
     super.key,
     required this.text,
     this.onPressed,
     this.isFullWidth = true,
     this.isLoading = false,
-    this.buttonColor,
-    this.textColor,
+    this.borderColor = const Color(0xFF7C56E1),
+    this.borderWidth = 2.0,
+    this.textColor, // Added to constructor
   });
 
   @override
   Widget build(BuildContext context) {
-    final mainPurple = const Color(0xFF7C56E1);
     final theme = Theme.of(context);
-    final effectiveButtonColor = buttonColor ?? mainPurple;
-    final effectiveTextColor = textColor ?? Colors.white;
+    final isDark = theme.brightness == Brightness.dark;
+    // Use provided textColor if available, otherwise fall back to theme-based color
+    final resolvedTextColor =
+        textColor ?? (isDark ? Colors.white : Colors.black);
 
     return SizedBox(
       width: isFullWidth ? double.infinity : null,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: effectiveButtonColor,
-          foregroundColor: effectiveTextColor,
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+      child: OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: borderColor,
+          side: BorderSide(color: borderColor, width: borderWidth),
+          padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(30),
           ),
-          elevation: 4,
-          shadowColor: effectiveButtonColor.withOpacity(0.3),
+          backgroundColor: Colors.transparent,
         ).copyWith(
           overlayColor: WidgetStateProperty.resolveWith<Color?>((states) {
             if (states.contains(WidgetState.pressed)) {
-              return effectiveTextColor.withOpacity(0.2);
+              return borderColor.withOpacity(0.1);
             }
             if (states.contains(WidgetState.hovered)) {
-              return effectiveTextColor.withOpacity(0.1);
+              return borderColor.withOpacity(0.05);
             }
             return null;
           }),
@@ -51,12 +53,12 @@ class MainButton extends StatelessWidget {
         onPressed: isLoading ? null : onPressed,
         child:
             isLoading
-                ? const SizedBox(
+                ? SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Colors.white,
+                    color: borderColor,
                   ),
                 )
                 : Text(
@@ -64,7 +66,7 @@ class MainButton extends StatelessWidget {
                   style: theme.textTheme.labelLarge?.copyWith(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
-                    color: effectiveTextColor,
+                    color: resolvedTextColor, // Use the resolved color here
                     letterSpacing: 0.5,
                   ),
                 ),

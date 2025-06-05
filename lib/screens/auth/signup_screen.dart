@@ -46,7 +46,6 @@ class _SignupScreenState extends State<SignupScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // Email field
             TextField(
               controller: _emailController,
               decoration: const InputDecoration(
@@ -56,7 +55,6 @@ class _SignupScreenState extends State<SignupScreen> {
             ),
             const SizedBox(height: 10),
 
-            // Password field
             TextField(
               controller: _passwordController,
               obscureText: true,
@@ -67,7 +65,6 @@ class _SignupScreenState extends State<SignupScreen> {
             ),
             const SizedBox(height: 10),
 
-            // Confirm Password field
             TextField(
               controller: _confirmPasswordController,
               obscureText: true,
@@ -78,11 +75,9 @@ class _SignupScreenState extends State<SignupScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Sign Up button
             ElevatedButton(onPressed: signUp, child: const Text('Sign Up')),
             const SizedBox(height: 10),
 
-            // Login link
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Already have an account? Login'),

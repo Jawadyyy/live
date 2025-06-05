@@ -37,7 +37,6 @@ class _LoginScreenState extends State<LoginScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // Email field
             TextField(
               controller: _emailController,
               decoration: const InputDecoration(
@@ -47,7 +46,6 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: 10),
 
-            // Password field
             TextField(
               controller: _passwordController,
               obscureText: true,
@@ -58,11 +56,9 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Login button
             ElevatedButton(onPressed: login, child: const Text('Login')),
             const SizedBox(height: 10),
 
-            // Sign Up link
             TextButton(
               onPressed:
                   () => Navigator.push(
