@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:live/auth/auth_gate.dart';
 import 'package:live/components/primary_button.dart';
 import 'package:live/components/secondary_button.dart';
-import 'package:live/screens/auth/login_portal.dart';
 import 'package:live/screens/auth/signup_screen.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -162,7 +162,7 @@ class _AuthScreenState extends State<AuthScreen>
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const LoginPortal(),
+                              builder: (context) => const AuthGate(),
                             ),
                           );
                         },

@@ -7,6 +7,9 @@ class MainButton extends StatelessWidget {
   final bool isLoading;
   final Color? buttonColor;
   final Color? textColor;
+  final Widget? leadingIcon;
+  final Widget? trailingIcon;
+  final double iconGap;
 
   const MainButton({
     super.key,
@@ -16,6 +19,9 @@ class MainButton extends StatelessWidget {
     this.isLoading = false,
     this.buttonColor,
     this.textColor,
+    this.leadingIcon,
+    this.trailingIcon,
+    this.iconGap = 8.0,
   });
 
   @override
@@ -24,6 +30,51 @@ class MainButton extends StatelessWidget {
     final theme = Theme.of(context);
     final effectiveButtonColor = buttonColor ?? mainPurple;
     final effectiveTextColor = textColor ?? Colors.white;
+
+    Widget buildContent() {
+      if (isLoading) {
+        return const SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+        );
+      }
+
+      final hasLeading = leadingIcon != null;
+      final hasTrailing = trailingIcon != null;
+
+      if (!hasLeading && !hasTrailing) {
+        return Text(
+          text,
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: effectiveTextColor,
+            letterSpacing: 0.5,
+          ),
+        );
+      }
+
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (hasLeading) leadingIcon!,
+          if (hasLeading) SizedBox(width: iconGap),
+          Text(
+            text,
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: effectiveTextColor,
+              letterSpacing: 0.5,
+            ),
+          ),
+          if (hasTrailing) SizedBox(width: iconGap),
+          if (hasTrailing) trailingIcon!,
+        ],
+      );
+    }
 
     return SizedBox(
       width: isFullWidth ? double.infinity : null,
@@ -49,25 +100,7 @@ class MainButton extends StatelessWidget {
           }),
         ),
         onPressed: isLoading ? null : onPressed,
-        child:
-            isLoading
-                ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-                : Text(
-                  text,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: effectiveTextColor,
-                    letterSpacing: 0.5,
-                  ),
-                ),
+        child: buildContent(),
       ),
     );
   }

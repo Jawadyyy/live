@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:live/auth/auth_screen.dart';
 import 'package:live/components/primary_button.dart';
+import 'package:live/screens/auth/auth_screen.dart';
 
 class ConnectScreen extends StatelessWidget {
   final VoidCallback? onContinuePressed;
