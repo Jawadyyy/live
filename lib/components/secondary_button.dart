@@ -7,7 +7,7 @@ class SecondButton extends StatelessWidget {
   final bool isLoading;
   final Color borderColor;
   final double borderWidth;
-  final Color? textColor; // New optional parameter
+  final Color? textColor;
 
   const SecondButton({
     super.key,
@@ -17,14 +17,13 @@ class SecondButton extends StatelessWidget {
     this.isLoading = false,
     this.borderColor = const Color(0xFF7C56E1),
     this.borderWidth = 2.0,
-    this.textColor, // Added to constructor
+    this.textColor,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    // Use provided textColor if available, otherwise fall back to theme-based color
     final resolvedTextColor =
         textColor ?? (isDark ? Colors.white : Colors.black);
 
@@ -66,7 +65,7 @@ class SecondButton extends StatelessWidget {
                   style: theme.textTheme.labelLarge?.copyWith(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
-                    color: resolvedTextColor, // Use the resolved color here
+                    color: resolvedTextColor,
                     letterSpacing: 0.5,
                   ),
                 ),
