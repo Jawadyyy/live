@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl_phone_number_input/intl_phone_number_input.dart';
 import 'package:live/components/phone_input.dart';
 import 'package:live/auth/auth_service.dart';
 import 'package:live/components/text_field.dart';
@@ -19,11 +18,11 @@ class _SignupScreenState extends State<SignupScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _phoneController = TextEditingController();
-  PhoneNumber _phoneNumber = PhoneNumber(isoCode: 'US');
+  String? _phoneNumber;
+  bool _isPhoneValid = false;
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-  bool _isPhoneValid = false;
 
   @override
   void dispose() {
@@ -173,13 +172,27 @@ class _SignupScreenState extends State<SignupScreen> {
         const SizedBox(height: 16),
 
         // Phone Input
-        CustomPhoneInput(
-          initialValue: _phoneNumber,
-          controller: _phoneController,
-          onInputChanged: (PhoneNumber number) {
-            setState(() => _phoneNumber = number);
+        PhoneForm(
+          onPhoneChanged: (phone) {
+            setState(() {
+              _phoneNumber = phone;
+              _isPhoneValid =
+                  phone.length > 8; // Simple validation - adjust as needed
+            });
           },
-          // Removed onInputValidated parameter
+          label: 'Phone Number', // Added required parameter
+          hintText: 'Enter your phone number', // Optional parameter
+          validator: (value) {
+            // Optional validator
+            if (value == null || value.isEmpty) {
+              return 'Please enter a phone number';
+            }
+            if (value.length < 9) {
+              // Matching your length validation
+              return 'Phone number is too short';
+            }
+            return null;
+          },
         ),
         const SizedBox(height: 16),
 

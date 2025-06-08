@@ -1,84 +1,84 @@
 import 'package:flutter/material.dart';
-import 'package:intl_phone_number_input/intl_phone_number_input.dart';
+import 'package:intl_phone_field/intl_phone_field.dart';
 
-class CustomPhoneInput extends StatelessWidget {
-  final PhoneNumber initialValue;
-  final TextEditingController controller;
-  final ValueChanged<PhoneNumber> onInputChanged;
-  final ValueChanged<bool> onInputValidated;
+class PhoneForm extends StatefulWidget {
+  final Function(String) onPhoneChanged;
+  final String label;
+  final String? hintText;
   final String? Function(String?)? validator;
 
-  const CustomPhoneInput({
+  const PhoneForm({
     super.key,
-    required this.initialValue,
-    required this.controller,
-    required this.onInputChanged,
-    required this.onInputValidated,
+    required this.onPhoneChanged,
+    required this.label,
+    this.hintText,
     this.validator,
   });
 
   @override
+  _PhoneFormState createState() => _PhoneFormState();
+}
+
+class _PhoneFormState extends State<PhoneForm> {
+  final TextEditingController _phoneController = TextEditingController();
+  final FocusNode _phoneFocusNode = FocusNode();
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final textColor = theme.colorScheme.onSurface;
     final hintColor = theme.colorScheme.onSurface.withOpacity(0.4);
     final borderColor = theme.colorScheme.onSurface.withOpacity(0.1);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 4),
-        Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: borderColor, width: 1),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: InternationalPhoneNumberInput(
-            onInputChanged: onInputChanged,
-            onInputValidated: onInputValidated,
-            selectorConfig: const SelectorConfig(
-              selectorType: PhoneInputSelectorType.BOTTOM_SHEET,
-              showFlags: true,
-              useEmoji: true,
-              leadingPadding: 8,
-            ),
-            spaceBetweenSelectorAndTextField: 0,
-            ignoreBlank: false,
-            autoValidateMode: AutovalidateMode.disabled,
-            selectorTextStyle: TextStyle(color: textColor),
-            initialValue: initialValue,
-            textFieldController: controller,
-            formatInput: true,
-            keyboardType: const TextInputType.numberWithOptions(
-              signed: true,
-              decimal: true,
-            ),
-            inputDecoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(vertical: 16),
-              isDense: true,
-              border: InputBorder.none,
-              hintText: 'Enter phone number',
-              hintStyle: TextStyle(color: Colors.black, fontSize: 16),
-              errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: theme.colorScheme.error),
-              ),
-            ),
-            textStyle: TextStyle(color: textColor, fontSize: 16),
-            cursorColor: theme.primaryColor,
-            searchBoxDecoration: InputDecoration(
-              contentPadding: const EdgeInsets.all(16),
-              labelText: 'Search country',
-              labelStyle: TextStyle(color: textColor),
-              prefixIcon: Icon(Icons.search, color: hintColor),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: borderColor),
-              ),
-            ),
+    return IntlPhoneField(
+      controller: _phoneController,
+      focusNode: _phoneFocusNode,
+      style: TextStyle(color: theme.colorScheme.onSurface),
+      decoration: InputDecoration(
+        labelText: widget.label,
+        hintText: widget.hintText,
+        hintStyle: TextStyle(color: hintColor),
+        prefixIcon: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Image.asset(
+            'assets/images/icons/phone.png',
+            width: 24,
+            height: 24,
+            color: hintColor,
           ),
         ),
-      ],
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: borderColor),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: borderColor),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: theme.primaryColor, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: theme.colorScheme.error),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: theme.colorScheme.error, width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+      ),
+      initialCountryCode: 'US',
+      onChanged: (phone) {
+        widget.onPhoneChanged(phone.completeNumber);
+      },
+      onCountryChanged: (country) {
+        // ignore: avoid_print
+        print('Country changed to: ${country.name}');
+      },
     );
   }
 }
