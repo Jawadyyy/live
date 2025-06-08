@@ -209,54 +209,38 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 24),
 
               // Social Login Buttons
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              // Social Login Buttons
+              Column(
                 children: [
-                  // Google Login Button
-                  OutlinedButton.icon(
-                    onPressed: () => authService.signInWithGoogle(),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        debugPrint("Google login pressed");
+                        authService.signInWithGoogle();
+                      },
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        side: BorderSide(color: Colors.grey.shade300),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        backgroundColor: Colors.white,
                       ),
-                      side: BorderSide(color: Colors.grey.shade300),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                      icon: Image.asset(
+                        'icons/google.png', // Update path if needed
+                        width: 24,
+                        errorBuilder:
+                            (context, error, stackTrace) =>
+                                const Icon(Icons.g_mobiledata),
                       ),
-                      backgroundColor: Colors.white,
-                    ),
-                    icon: Image.asset('icons/google.png', width: 24),
-                    label: const Text(
-                      'Google',
-                      style: TextStyle(
-                        color: Colors.black87,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-
-                  // Facebook Login Button
-                  OutlinedButton.icon(
-                    onPressed: () => {}, //authService.signInWithFacebook(),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      side: BorderSide(color: Colors.grey.shade300),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      backgroundColor: Colors.white,
-                    ),
-                    icon: Image.asset('icons/fb.png', width: 24),
-                    label: const Text(
-                      'Facebook',
-                      style: TextStyle(
-                        color: Colors.black87,
-                        fontWeight: FontWeight.w500,
+                      label: const Text(
+                        'Login with Google',
+                        style: TextStyle(
+                          color: Colors.black87,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
                   ),

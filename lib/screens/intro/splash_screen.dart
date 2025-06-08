@@ -17,8 +17,8 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _scaleAnimation;
   late Animation<Offset> _slideAnimation;
   late Animation<Color?> _colorAnimation;
-  late Animation<double> _waveAnimation;
   late Animation<double> _rippleAnimation;
+  late Animation<double> _glowAnimation;
 
   @override
   void initState() {
@@ -29,10 +29,11 @@ class _SplashScreenState extends State<SplashScreen>
       vsync: this,
     );
 
+    // Improved animation curves and timing
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
+        curve: const Interval(0.0, 0.6, curve: Curves.easeInOutCubic),
       ),
     );
 
@@ -58,26 +59,26 @@ class _SplashScreenState extends State<SplashScreen>
       end: const Color(0xFF7C56E1),
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
 
-    _waveAnimation = Tween<double>(begin: 0.0, end: 2.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.6, 1.0, curve: Curves.linear),
-      ),
-    );
-
     _rippleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.7, 1.0, curve: Curves.easeOut),
+        curve: const Interval(0.5, 1.0, curve: Curves.easeOut),
+      ),
+    );
+
+    _glowAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.3, 0.8, curve: Curves.easeInOut),
       ),
     );
 
     _controller.forward();
 
-    Future.delayed(const Duration(seconds: 4), () {
-      Navigator.of(
-        context,
-      ).pushReplacement(MaterialPageRoute(builder: (context) => MatchScreen()));
+    Future.delayed(const Duration(seconds: 3), () {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const MatchScreen()),
+      );
     });
   }
 
@@ -87,35 +88,22 @@ class _SplashScreenState extends State<SplashScreen>
     super.dispose();
   }
 
-  Widget _buildPulsingDot(double size, Animation<double> animation) {
-    return ScaleTransition(
-      scale: Tween<double>(begin: 0.5, end: 1.2).animate(
-        CurvedAnimation(
-          parent: _controller,
-          curve: const Interval(0.7, 1.0, curve: Curves.easeInOut),
-        ),
-      ),
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.8),
-          shape: BoxShape.circle,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWaveEffect(Animation<double> animation) {
+  Widget _buildPulsingDot(double size) {
     return AnimatedBuilder(
-      animation: animation,
+      animation: _controller,
       builder: (context, child) {
-        return CustomPaint(
-          painter: WavePainter(
-            animationValue: animation.value,
-            color: Colors.white.withOpacity(0.3),
+        final pulseValue =
+            0.8 + 0.2 * math.sin(_controller.value * math.pi * 4);
+        return Transform.scale(
+          scale: pulseValue,
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.8),
+              shape: BoxShape.circle,
+            ),
           ),
-          size: Size(MediaQuery.of(context).size.width, 100),
         );
       },
     );
@@ -130,11 +118,27 @@ class _SplashScreenState extends State<SplashScreen>
           backgroundColor: _colorAnimation.value,
           body: Stack(
             children: [
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: _buildWaveEffect(_waveAnimation),
+              // Background glow effect
+              Positioned.fill(
+                child: AnimatedBuilder(
+                  animation: _glowAnimation,
+                  builder: (context, child) {
+                    return Container(
+                      decoration: BoxDecoration(
+                        gradient: RadialGradient(
+                          center: Alignment.center,
+                          radius: 1.5,
+                          colors: [
+                            Colors.white.withOpacity(
+                              0.1 * _glowAnimation.value,
+                            ),
+                            _colorAnimation.value!.withOpacity(0.01),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
 
               Center(
@@ -144,6 +148,7 @@ class _SplashScreenState extends State<SplashScreen>
                     Stack(
                       alignment: Alignment.center,
                       children: [
+                        // Ripple effect
                         if (_rippleAnimation.value > 0)
                           Transform.scale(
                             scale: _rippleAnimation.value * 1.5,
@@ -158,65 +163,90 @@ class _SplashScreenState extends State<SplashScreen>
                               ),
                             ),
                           ),
+
+                        // Main icon with scaling
                         ScaleTransition(
                           scale: _scaleAnimation,
                           child: FadeTransition(
                             opacity: _fadeAnimation,
-                            child: const Icon(
-                              Icons.forum_rounded,
-                              size: 80,
-                              color: Colors.white,
+                            child: ShaderMask(
+                              shaderCallback: (bounds) {
+                                return RadialGradient(
+                                  center: Alignment.center,
+                                  radius: 0.8,
+                                  colors: [
+                                    Colors.white,
+                                    Colors.white.withOpacity(0.7),
+                                  ],
+                                  stops: const [0.0, 1.0],
+                                ).createShader(bounds);
+                              },
+                              child: const Icon(
+                                Icons.forum_rounded,
+                                size: 80,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ),
                       ],
                     ),
+
                     const SizedBox(height: 30),
+
+                    // App title with improved typography
                     FadeTransition(
                       opacity: _fadeAnimation,
-                      child: const Text(
+                      child: Text(
                         'L I V E',
                         style: TextStyle(
                           fontSize: 36,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w900,
                           color: Colors.white,
+                          letterSpacing: 2.5,
                           shadows: [
                             Shadow(
+                              color: Colors.black.withOpacity(0.2),
                               blurRadius: 10,
-                              color: Colors.black26,
-                              offset: Offset(2, 2),
+                              offset: const Offset(2, 2),
                             ),
                           ],
                         ),
                       ),
                     ),
+
                     const SizedBox(height: 10),
+
+                    // Subtitle with slide animation
                     SlideTransition(
                       position: _slideAnimation,
-                      child: const Text(
+                      child: Text(
                         'Connecting people instantly',
                         style: TextStyle(
                           fontSize: 16,
-                          color: Colors.white70,
+                          color: Colors.white.withOpacity(0.85),
                           shadows: [
                             Shadow(
+                              color: Colors.black.withOpacity(0.1),
                               blurRadius: 5,
-                              color: Colors.black26,
-                              offset: Offset(1, 1),
+                              offset: const Offset(1, 1),
                             ),
                           ],
                         ),
                       ),
                     ),
+
                     const SizedBox(height: 40),
+
+                    // Pulsing dots loader with improved timing
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _buildPulsingDot(12, _controller),
+                        _buildPulsingDot(12),
                         const SizedBox(width: 8),
-                        _buildPulsingDot(12, ReverseAnimation(_controller)),
+                        _buildPulsingDot(12),
                         const SizedBox(width: 8),
-                        _buildPulsingDot(12, _controller),
+                        _buildPulsingDot(12),
                       ],
                     ),
                   ],
@@ -228,41 +258,4 @@ class _SplashScreenState extends State<SplashScreen>
       },
     );
   }
-}
-
-class WavePainter extends CustomPainter {
-  final double animationValue;
-  final Color color;
-
-  WavePainter({required this.animationValue, required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint =
-        Paint()
-          ..color = color
-          ..style = PaintingStyle.fill;
-
-    final path = Path();
-    path.moveTo(0, size.height);
-
-    final waveHeight = 20.0;
-    final waveLength = size.width / 2;
-
-    for (double i = 0; i < size.width; i++) {
-      final y =
-          waveHeight *
-          math.sin(
-            (i / waveLength * 2 * math.pi) + (animationValue * waveHeight),
-          );
-      path.lineTo(i, size.height - y);
-    }
-
-    path.lineTo(size.width, size.height);
-    path.close();
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

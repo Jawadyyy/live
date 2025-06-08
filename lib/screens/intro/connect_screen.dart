@@ -145,14 +145,13 @@ class ConnectScreen extends StatelessWidget {
                                     ?.withOpacity(0.85),
                               ),
                               children: [
-                                TextSpan(
+                                const TextSpan(
                                   text:
-                                      'Upload your best photos and write a bio that\n',
+                                      'Upload your best photos and write a bio that reflects who you are. ',
                                 ),
-                                const TextSpan(text: 'reflects who you are. '),
                                 TextSpan(
                                   text:
-                                      'Be genuine and let your\npersonality shine!',
+                                      'Be genuine and let your personality shine!',
                                   style: TextStyle(fontWeight: FontWeight.w600),
                                 ),
                               ],
