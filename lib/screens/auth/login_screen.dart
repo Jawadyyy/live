@@ -214,7 +214,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   // Google Login Button
                   OutlinedButton.icon(
-                    onPressed: () {}, // => authService.signInWithGoogle(),
+                    onPressed: () => authService.signInWithGoogle(),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 20,
