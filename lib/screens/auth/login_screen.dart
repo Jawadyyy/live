@@ -3,6 +3,7 @@ import 'package:live/auth/auth_service.dart';
 import 'package:live/components/text_field.dart';
 import 'package:live/screens/auth/forgot_pass_screen.dart';
 import 'package:live/screens/auth/signup_screen.dart';
+import 'package:live/screens/main/home.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -30,10 +31,18 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await authService.signInWithEmailPassword(
+      final response = await authService.signInWithEmailPassword(
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
+
+      if (response.session != null && mounted) {
+        // Navigate to home screen after successful login
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => HomeScreen()),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
