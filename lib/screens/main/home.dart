@@ -1,5 +1,9 @@
+// home.dart
 import 'package:flutter/material.dart';
 import 'package:live/auth/auth_service.dart';
+import 'package:live/components/bottom_nav.dart';
+import 'package:live/screens/theme/theme_provider.dart';
+import 'package:provider/provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -9,25 +13,41 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  //get auth service
   final authService = AuthService();
+  int _selectedIndex = 0;
 
-  //logout button pressed
   void logout() async {
     await authService.signOut();
   }
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Home'),
         actions: [
-          //logout button
-          IconButton(onPressed: logout, icon: const Icon(Icons.logout)),
+          IconButton(
+            onPressed: logout,
+            icon: Icon(
+              Icons.logout,
+              color: isDarkMode ? Colors.white : const Color(0xFF7C56E1),
+            ),
+          ),
         ],
       ),
-      body: const Center(child: Text('Home', style: TextStyle(fontSize: 24))),
+      body: Center(child: CustomBottomNavBar.getPageContent(_selectedIndex)),
+      bottomNavigationBar: CustomBottomNavBar(
+        selectedIndex: _selectedIndex,
+        onTabChange: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        isDarkMode: isDarkMode,
+      ),
     );
   }
 }
