@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "608183093265",
+    "project_id": "live-ce1d8",
+    "storage_bucket": "live-ce1d8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:608183093265:android:9ce005cfa5270fbb83c9b0",
+        "android_client_info": {
+          "package_name": "com.example.live"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDD9RdO26N9S84GtQw1vbY98mq_piFv1UM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

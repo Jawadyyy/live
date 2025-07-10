@@ -1,5 +1,8 @@
+import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:io'; // For SocketException
+import 'package:flutter/services.dart'; // For PlatformException
 
 class AuthService {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -32,32 +35,39 @@ class AuthService {
     return user?.email;
   }
 
-  Future<AuthResponse> signInWithGoogle() async {
+  Future<bool> signInWithGoogle() async {
+    const webClientId =
+        '608183093265-feg362p157r6k2t6elfo3aokc18h5oj4.apps.googleusercontent.com';
+    const androidClientId =
+        '608183093265-liidh47smc7raf166t5j9qlm21hjirad.apps.googleusercontent.com';
+
+    final googleSignIn = GoogleSignIn(
+      clientId: androidClientId,
+      serverClientId: webClientId,
+    );
+
     try {
-      final GoogleSignIn googleSignIn = GoogleSignIn(
-        scopes: ['email', 'profile'],
-        // For Android: no clientId needed
-        // For iOS: clientId: 'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com',
-        // For Web: serverClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
-      );
+      final googleUser = await googleSignIn.signIn();
+      if (googleUser == null) return false; // User cancelled
 
-      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
-      if (googleUser == null) throw Exception('Sign in cancelled');
+      final googleAuth = await googleUser.authentication;
+      final accessToken = googleAuth.accessToken;
+      final idToken = googleAuth.idToken;
 
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-
-      if (googleAuth.idToken == null) {
-        throw Exception('No ID token received from Google');
+      if (idToken == null || accessToken == null) {
+        throw Exception("Missing tokens");
       }
 
-      return await Supabase.instance.client.auth.signInWithIdToken(
+      await Supabase.instance.client.auth.signInWithIdToken(
         provider: OAuthProvider.google,
-        idToken: googleAuth.idToken!,
-        accessToken: googleAuth.accessToken,
+        idToken: idToken,
+        accessToken: accessToken,
       );
+
+      return true; // Sign-in successful
     } catch (e) {
-      throw Exception('Google sign-in failed. Please check configuration.');
+      debugPrint('Google Sign-In Error: $e');
+      return false;
     }
   }
 }
