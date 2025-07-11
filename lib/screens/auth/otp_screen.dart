@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:live/auth/auth_service.dart';
 import 'package:live/components/text_field.dart';
 import 'package:live/screens/auth/pass_reset_screen.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   final String email;
+  final AuthService authService = AuthService();
 
-  const OtpVerificationScreen({super.key, required this.email});
+  OtpVerificationScreen({super.key, required this.email});
 
   @override
   State<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
@@ -62,10 +64,34 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
     setState(() => _isLoading = true);
 
-    // TODO: Implement your OTP verification logic here
     try {
-      // await authService.verifyOtp(widget.email, otpCode);
-      // Navigate to success screen or new password screen
+      final isValid = await widget.authService.verifyOtp(
+        widget.email,
+        otpCode,
+      ); // Changed here
+      if (isValid) {
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder:
+                  (context) => PasswordResetScreen(
+                    email: widget.email,
+                    otpCode: otpCode,
+                  ),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Invalid or expired OTP'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -213,58 +239,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed:
-                      _isLoading
-                          ? null
-                          : () async {
-                            final otpCode =
-                                _otpControllers.map((c) => c.text).join();
-                            if (otpCode.length != 6) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Please enter complete 6-digit code',
-                                  ),
-                                ),
-                              );
-                              return;
-                            }
-
-                            setState(() => _isLoading = true);
-
-                            try {
-                              // Replace with your actual OTP verification logic
-                              // await authService.verifyOtp(widget.email, otpCode);
-
-                              // On successful verification, navigate to PasswordResetScreen
-                              if (mounted) {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder:
-                                        (context) => PasswordResetScreen(
-                                          email: widget.email,
-                                          otpCode:
-                                              otpCode, // Pass the OTP if needed for verification
-                                        ),
-                                  ),
-                                );
-                              }
-                            } catch (e) {
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text("Error: ${e.toString()}"),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              }
-                            } finally {
-                              if (mounted) {
-                                setState(() => _isLoading = false);
-                              }
-                            }
-                          },
+                  onPressed: _isLoading ? null : verifyOtp,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(

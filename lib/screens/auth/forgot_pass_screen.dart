@@ -129,7 +129,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   onPressed:
                       _isLoading
                           ? null
-                          : () {
+                          : () async {
                             if (_emailController.text.isEmpty) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
@@ -141,15 +141,44 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               return;
                             }
 
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (context) => OtpVerificationScreen(
-                                      email: _emailController.text.trim(),
-                                    ),
-                              ),
-                            );
+                            setState(() => _isLoading = true);
+
+                            try {
+                              // Send OTP to email
+                              final otp = await authService.sendOtp(
+                                _emailController.text.trim(),
+                              );
+
+                              // For testing purposes, show the OTP in console
+                              debugPrint(
+                                'OTP for ${_emailController.text}: $otp',
+                              );
+
+                              if (mounted) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) => OtpVerificationScreen(
+                                          email: _emailController.text.trim(),
+                                        ),
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text("Error: ${e.toString()}"),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            } finally {
+                              if (mounted) {
+                                setState(() => _isLoading = false);
+                              }
+                            }
                           },
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -159,14 +188,17 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     backgroundColor: brandColor,
                     elevation: 2,
                   ),
-                  child: Text(
-                    'Continue',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  child:
+                      _isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : Text(
+                            'Continue',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                 ),
               ),
               const SizedBox(height: 24),
