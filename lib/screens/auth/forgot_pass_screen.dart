@@ -149,11 +149,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                 _emailController.text.trim(),
                               );
 
-                              // For testing purposes, show the OTP in console
-                              debugPrint(
-                                'OTP for ${_emailController.text}: $otp',
-                              );
-
                               if (mounted) {
                                 Navigator.push(
                                   context,

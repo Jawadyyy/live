@@ -74,44 +74,47 @@ class AuthService {
   }
 
   // Generate and send OTP
-  Future<String> sendOtp(String email) async {
-    // Generate 6-digit OTP
+  String generateOtp() {
+    final random = Random();
+    return (100000 + random.nextInt(900000)).toString(); // 6-digit OTP
+  }
+
+  Future<void> sendOtp(String email) async {
     final otp = generateOtp();
 
-    // Store OTP in Supabase with expiration (1 minute)
+    // Save OTP and expiry to Supabase
     await _supabase.from('password_reset_otps').upsert({
       'email': email,
       'otp': otp,
-      'created_at': DateTime.now().toIso8601String(),
-      'expires_at': DateTime.now().add(Duration(minutes: 1)).toIso8601String(),
+      'expires_at':
+          DateTime.now().add(const Duration(minutes: 5)).toIso8601String(),
     });
 
-    // Send email with OTP (using Supabase email or your own service)
-    await _supabase.auth.resetPasswordForEmail(
-      email,
-      redirectTo: 'your-app-scheme://reset-password', // Optional
-    );
+    // Send the password reset email with custom template
+    await _supabase.auth.resetPasswordForEmail(email);
 
-    // In production, you would actually send the OTP via email
-    // For testing, we'll return it so you can see it
-    return otp;
+    // For testing
+    print('OTP sent to $email: $otp');
   }
 
   // Verify OTP
   Future<bool> verifyOtp(String email, String otp) async {
-    final response =
-        await _supabase
-            .from('password_reset_otps')
-            .select()
-            .eq('email', email)
-            .eq('otp', otp)
-            .gte('expires_at', DateTime.now().toIso8601String())
-            .single();
+    try {
+      final result =
+          await _supabase
+              .from('password_reset_otps')
+              .select()
+              .eq('email', email)
+              .eq('otp', otp)
+              .gte('expires_at', DateTime.now().toIso8601String())
+              .maybeSingle();
 
-    if (response != null) {
-      return true;
+      // If no match or expired, maybeSingle() returns null
+      return result != null;
+    } catch (e) {
+      print('OTP verification failed: $e');
+      return false;
     }
-    return false;
   }
 
   // Reset password after OTP verification
@@ -145,11 +148,5 @@ class AuthService {
     } catch (e) {
       throw Exception('Failed to update password: ${e.toString()}');
     }
-  }
-
-  // Helper function to generate OTP
-  String generateOtp() {
-    final random = Random();
-    return (100000 + random.nextInt(900000)).toString();
   }
 }

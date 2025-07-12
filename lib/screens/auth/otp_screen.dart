@@ -53,58 +53,34 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     }
   }
 
-  Future<void> verifyOtp() async {
-    final otpCode = _otpControllers.map((c) => c.text).join();
-    if (otpCode.length != 6) {
+  void verifyOtp() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    final otp = _otpControllers.map((c) => c.text.trim()).join();
+    final email = widget.email;
+
+    final isValid = await widget.authService.verifyOtp(email, otp);
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (isValid) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter complete 6-digit code')),
+        const SnackBar(content: Text('OTP verified successfully!')),
       );
-      return;
-    }
 
-    setState(() => _isLoading = true);
-
-    try {
-      final isValid = await widget.authService.verifyOtp(
-        widget.email,
-        otpCode,
-      ); // Changed here
-      if (isValid) {
-        if (mounted) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder:
-                  (context) => PasswordResetScreen(
-                    email: widget.email,
-                    otpCode: otpCode,
-                  ),
-            ),
-          );
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Invalid or expired OTP'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Error: ${e.toString()}"),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      // Navigate to password reset screen
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => PasswordResetScreen(email: email)),
+      );
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Invalid or expired OTP')));
     }
   }
 

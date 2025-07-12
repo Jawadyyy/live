@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:live/auth/auth_service.dart';
 import 'package:live/components/text_field.dart';
 import 'package:live/screens/auth/login_screen.dart';
 
@@ -6,11 +7,7 @@ class PasswordResetScreen extends StatefulWidget {
   final String email;
   final String otpCode; // Optional: if you need OTP verification
 
-  const PasswordResetScreen({
-    super.key,
-    required this.email,
-    this.otpCode = '',
-  });
+  PasswordResetScreen({super.key, required this.email, this.otpCode = ''});
 
   @override
   State<PasswordResetScreen> createState() => _PasswordResetScreenState();
@@ -24,6 +21,7 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
   bool _obscureConfirmPassword = true;
   final Color brandColor = const Color(0xFF7C56E1);
   final _formKey = GlobalKey<FormState>();
+  final AuthService authService = AuthService();
 
   @override
   void dispose() {
@@ -45,12 +43,11 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // TODO: Implement your password reset logic
-      // await authService.resetPassword(
-      //   widget.email,
-      //   _newPasswordController.text.trim(),
-      //   widget.otpCode, // if using OTP
-      // );
+      await authService.resetPassword(
+        widget.email,
+        _newPasswordController.text.trim(),
+        widget.otpCode,
+      );
 
       // Show success and navigate to login
       ScaffoldMessenger.of(context).showSnackBar(
