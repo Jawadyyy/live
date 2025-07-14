@@ -17,51 +17,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   bool _isLoading = false;
   final Color brandColor = const Color(0xFF7C56E1);
 
-  Future<void> sendResetLink() async {
-    if (_emailController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your email address')),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      //await authService.sendPasswordResetEmail(_emailController.text.trim());
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Password reset link sent to your email'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        // Optionally navigate back after successful submission
-        Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const LoginScreen()),
-            );
-          }
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Error: ${e.toString()}"),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -77,7 +32,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 40),
-              // Brand Header
               Center(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -111,8 +65,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 ),
               ),
               const SizedBox(height: 32),
-
-              // Email Field
               CustomTextField(
                 controller: _emailController,
                 label: 'Email',
@@ -121,8 +73,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 prefixIcon: Icons.email_outlined,
               ),
               const SizedBox(height: 32),
-
-              // Send Reset Link Button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -130,7 +80,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       _isLoading
                           ? null
                           : () async {
-                            if (_emailController.text.isEmpty) {
+                            final email = _emailController.text.trim();
+
+                            if (email.isEmpty) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text(
@@ -144,18 +96,18 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             setState(() => _isLoading = true);
 
                             try {
-                              // Send OTP to email
-                              final otp = await authService.sendOtp(
-                                _emailController.text.trim(),
-                              );
+                              // ✅ Send OTP and get it back
+                              final otp = await authService.sendOtp(email);
 
+                              // ✅ Navigate to OTP screen with email + otp
                               if (mounted) {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder:
-                                        (context) => OtpVerificationScreen(
-                                          email: _emailController.text.trim(),
+                                        (_) => OtpVerificationScreen(
+                                          email: email,
+                                          generatedOtp: otp,
                                         ),
                                   ),
                                 );
@@ -186,7 +138,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   child:
                       _isLoading
                           ? const CircularProgressIndicator(color: Colors.white)
-                          : Text(
+                          : const Text(
                             'Continue',
                             style: TextStyle(
                               fontSize: 16,
@@ -197,8 +149,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-
-              // Back to Login
               Center(
                 child: TextButton(
                   onPressed:

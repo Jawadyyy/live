@@ -5,9 +5,14 @@ import 'package:live/screens/auth/pass_reset_screen.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   final String email;
+  final String generatedOtp; // ✅ Add this
   final AuthService authService = AuthService();
 
-  OtpVerificationScreen({super.key, required this.email});
+  OtpVerificationScreen({
+    super.key,
+    required this.email,
+    required this.generatedOtp,
+  });
 
   @override
   State<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
@@ -16,19 +21,16 @@ class OtpVerificationScreen extends StatefulWidget {
 class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   final List<TextEditingController> _otpControllers = List.generate(
     6,
-    (index) => TextEditingController(),
+    (_) => TextEditingController(),
   );
-  final List<FocusNode> _otpFocusNodes = List.generate(
-    6,
-    (index) => FocusNode(),
-  );
+  final List<FocusNode> _otpFocusNodes = List.generate(6, (_) => FocusNode());
+
   bool _isLoading = false;
   final Color brandColor = const Color(0xFF7C56E1);
 
   @override
   void initState() {
     super.initState();
-    // Auto-focus the first OTP field when screen loads
     _otpFocusNodes[0].requestFocus();
   }
 
@@ -58,29 +60,29 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       _isLoading = true;
     });
 
-    final otp = _otpControllers.map((c) => c.text.trim()).join();
-    final email = widget.email;
+    final enteredOtp = _otpControllers.map((c) => c.text.trim()).join();
 
-    final isValid = await widget.authService.verifyOtp(email, otp);
+    await Future.delayed(const Duration(milliseconds: 300));
 
     setState(() {
       _isLoading = false;
     });
 
-    if (isValid) {
+    if (enteredOtp == widget.generatedOtp) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('OTP verified successfully!')),
       );
 
-      // Navigate to password reset screen
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => PasswordResetScreen(email: email)),
+        MaterialPageRoute(
+          builder: (_) => PasswordResetScreen(email: widget.email),
+        ),
       );
     } else {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Invalid or expired OTP')));
+      ).showSnackBar(const SnackBar(content: Text('Invalid OTP')));
     }
   }
 
@@ -99,7 +101,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 40),
-              // Brand Header
               Center(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -144,8 +145,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 ),
               ),
               const SizedBox(height: 32),
-
-              // OTP Input Fields
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: List.generate(6, (index) {
@@ -180,8 +179,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 }),
               ),
               const SizedBox(height: 24),
-
-              // Resend Code
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -193,7 +190,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   ),
                   TextButton(
                     onPressed: () {
-                      // TODO: Implement resend OTP logic
+                      // Optional: resend logic here
                     },
                     style: TextButton.styleFrom(
                       padding: EdgeInsets.zero,
@@ -210,8 +207,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 ],
               ),
               const SizedBox(height: 32),
-
-              // Verify Button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -234,7 +229,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                               valueColor: AlwaysStoppedAnimation(Colors.white),
                             ),
                           )
-                          : Text(
+                          : const Text(
                             'Verify',
                             style: TextStyle(
                               fontSize: 16,
@@ -245,8 +240,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-
-              // Back to Login
               Center(
                 child: TextButton(
                   onPressed: () => Navigator.pop(context),

@@ -79,10 +79,10 @@ class AuthService {
     return (100000 + random.nextInt(900000)).toString(); // 6-digit OTP
   }
 
-  Future<void> sendOtp(String email) async {
+  Future<String> sendOtp(String email) async {
     final otp = generateOtp();
 
-    // Save OTP and expiry to Supabase
+    // Save to Supabase (optional – keep this if you want a backup)
     await _supabase.from('password_reset_otps').upsert({
       'email': email,
       'otp': otp,
@@ -90,11 +90,12 @@ class AuthService {
           DateTime.now().add(const Duration(minutes: 5)).toIso8601String(),
     });
 
-    // Send the password reset email with custom template
     await _supabase.auth.resetPasswordForEmail(email);
 
     // For testing
     print('OTP sent to $email: $otp');
+
+    return otp;
   }
 
   // Verify OTP

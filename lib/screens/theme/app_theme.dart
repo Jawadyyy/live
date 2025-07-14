@@ -16,7 +16,7 @@ class AppTheme {
       bodyLarge: TextStyle(color: Colors.black87),
       bodyMedium: TextStyle(color: Colors.black87),
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: Colors.white,
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -48,9 +48,9 @@ class AppTheme {
   static final ThemeData darkTheme = ThemeData(
     brightness: Brightness.dark,
     primaryColor: const Color(0xFF7C56E1),
-    scaffoldBackgroundColor: const Color(0xFF121212), // Base dark background
+    scaffoldBackgroundColor: const Color(0xFF121212),
     appBarTheme: AppBarTheme(
-      color: Colors.black.withOpacity(0.5), // Semi-transparent black
+      color: Colors.black.withOpacity(0.5),
       elevation: 0,
       iconTheme: const IconThemeData(color: Colors.white),
     ),
@@ -58,19 +58,14 @@ class AppTheme {
       displayLarge: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
       displayMedium: TextStyle(color: Colors.white),
       bodyLarge: TextStyle(color: Colors.white, fontSize: 16),
-      bodyMedium: TextStyle(
-        color: Color(0xFFB0B0B0),
-      ), // Lighter gray for secondary text
+      bodyMedium: TextStyle(color: Color(0xFFB0B0B0)),
     ),
-    cardTheme: CardTheme(
-      color: Colors.black.withOpacity(0.3), // Semi-transparent card
+    cardTheme: CardThemeData(
+      color: Colors.black.withOpacity(0.3),
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: Colors.grey.withOpacity(0.1), // Subtle border
-          width: 1,
-        ),
+        side: BorderSide(color: Colors.grey.withOpacity(0.1), width: 1),
       ),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
@@ -101,7 +96,6 @@ class AppTheme {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      // ignore: deprecated_member_use
     ),
   );
 }
