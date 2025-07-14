@@ -1,10 +1,6 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:io'; // For SocketException
-import 'package:flutter/services.dart'; // For PlatformException
 
 class AuthService {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -50,7 +46,7 @@ class AuthService {
 
     try {
       final googleUser = await googleSignIn.signIn();
-      if (googleUser == null) return false; // User cancelled
+      if (googleUser == null) return false;
 
       final googleAuth = await googleUser.authentication;
       final accessToken = googleAuth.accessToken;
@@ -66,88 +62,30 @@ class AuthService {
         accessToken: accessToken,
       );
 
-      return true; // Sign-in successful
+      return true;
     } catch (e) {
       debugPrint('Google Sign-In Error: $e');
       return false;
     }
   }
 
-  // Generate and send OTP
-  String generateOtp() {
-    final random = Random();
-    return (100000 + random.nextInt(900000)).toString(); // 6-digit OTP
-  }
-
-  Future<String> sendOtp(String email) async {
-    final otp = generateOtp();
-
-    // Save to Supabase (optional – keep this if you want a backup)
-    await _supabase.from('password_reset_otps').upsert({
-      'email': email,
-      'otp': otp,
-      'expires_at':
-          DateTime.now().add(const Duration(minutes: 5)).toIso8601String(),
-    });
-
+  Future<void> sendResetOtp(String email) async {
     await _supabase.auth.resetPasswordForEmail(email);
-
-    // For testing
-    print('OTP sent to $email: $otp');
-
-    return otp;
   }
 
-  // Verify OTP
-  Future<bool> verifyOtp(String email, String otp) async {
-    try {
-      final result =
-          await _supabase
-              .from('password_reset_otps')
-              .select()
-              .eq('email', email)
-              .eq('otp', otp)
-              .gte('expires_at', DateTime.now().toIso8601String())
-              .maybeSingle();
-
-      // If no match or expired, maybeSingle() returns null
-      return result != null;
-    } catch (e) {
-      print('OTP verification failed: $e');
-      return false;
-    }
+  Future<void> verifyOtpAndLogin(String email, String token) async {
+    final response = await _supabase.auth.verifyOTP(
+      type: OtpType.email,
+      email: email,
+      token: token,
+    );
+    if (response.user == null) throw Exception("OTP verification failed");
   }
 
-  // Reset password after OTP verification
-  Future<void> resetPassword(
-    String email,
-    String newPassword,
-    String otp,
-  ) async {
-    // First verify OTP
-    final isValid = await verifyOtp(email, otp);
-    if (!isValid) {
-      throw Exception('Invalid or expired OTP');
-    }
-
-    try {
-      // Update password using the new method
-      final response = await _supabase.auth.updateUser(
-        UserAttributes(password: newPassword),
-      );
-
-      if (response.user == null) {
-        throw Exception('Password update failed');
-      }
-
-      // Delete the used OTP
-      await _supabase
-          .from('password_reset_otps')
-          .delete()
-          .eq('email', email)
-          .eq('otp', otp);
-    } catch (e) {
-      throw Exception('Failed to update password: ${e.toString()}');
-    }
+  Future<void> updatePassword(String newPassword) async {
+    final response = await _supabase.auth.updateUser(
+      UserAttributes(password: newPassword),
+    );
+    if (response.user == null) throw Exception("Failed to update password");
   }
 }

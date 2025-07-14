@@ -1,18 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:live/auth/auth_service.dart';
-import 'package:live/components/text_field.dart';
 import 'package:live/screens/auth/pass_reset_screen.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   final String email;
-  final String generatedOtp; // ✅ Add this
   final AuthService authService = AuthService();
 
-  OtpVerificationScreen({
-    super.key,
-    required this.email,
-    required this.generatedOtp,
-  });
+  OtpVerificationScreen({super.key, required this.email});
 
   @override
   State<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
@@ -56,33 +50,38 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   }
 
   void verifyOtp() async {
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     final enteredOtp = _otpControllers.map((c) => c.text.trim()).join();
 
-    await Future.delayed(const Duration(milliseconds: 300));
+    try {
+      await widget.authService.verifyOtpAndLogin(widget.email, enteredOtp);
 
-    setState(() {
-      _isLoading = false;
-    });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('OTP verified successfully!')),
+        );
 
-    if (enteredOtp == widget.generatedOtp) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('OTP verified successfully!')),
-      );
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => PasswordResetScreen(email: widget.email),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Invalid OTP')));
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PasswordResetScreen(email: widget.email),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Invalid OTP: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -190,7 +189,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                   ),
                   TextButton(
                     onPressed: () {
-                      // Optional: resend logic here
+                      // Optional: Resend logic can be added here.
                     },
                     style: TextButton.styleFrom(
                       padding: EdgeInsets.zero,

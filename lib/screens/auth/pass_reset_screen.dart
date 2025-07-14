@@ -5,9 +5,8 @@ import 'package:live/screens/auth/login_screen.dart';
 
 class PasswordResetScreen extends StatefulWidget {
   final String email;
-  final String otpCode; // Optional: if you need OTP verification
 
-  PasswordResetScreen({super.key, required this.email, this.otpCode = ''});
+  const PasswordResetScreen({super.key, required this.email});
 
   @override
   State<PasswordResetScreen> createState() => _PasswordResetScreenState();
@@ -43,25 +42,21 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await authService.resetPassword(
-        widget.email,
-        _newPasswordController.text.trim(),
-        widget.otpCode,
-      );
+      await authService.updatePassword(_newPasswordController.text.trim());
 
-      // Show success and navigate to login
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Password reset successfully!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Password reset successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
 
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-        (route) => false,
-      );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -72,9 +67,7 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -95,7 +88,6 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 40),
-                // Brand Header
                 Center(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -130,7 +122,6 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                 ),
                 const SizedBox(height: 32),
 
-                // New Password Field
                 CustomTextField(
                   controller: _newPasswordController,
                   label: 'New Password',
@@ -153,16 +144,14 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                           : Icons.visibility_off,
                       color: theme.colorScheme.onSurface.withOpacity(0.4),
                     ),
-                    onPressed: () {
-                      setState(
-                        () => _obscureNewPassword = !_obscureNewPassword,
-                      );
-                    },
+                    onPressed:
+                        () => setState(() {
+                          _obscureNewPassword = !_obscureNewPassword;
+                        }),
                   ),
                 ),
                 const SizedBox(height: 16),
 
-                // Confirm Password Field
                 CustomTextField(
                   controller: _confirmPasswordController,
                   label: 'Confirm New Password',
@@ -185,17 +174,14 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                           : Icons.visibility_off,
                       color: theme.colorScheme.onSurface.withOpacity(0.4),
                     ),
-                    onPressed: () {
-                      setState(
-                        () =>
-                            _obscureConfirmPassword = !_obscureConfirmPassword,
-                      );
-                    },
+                    onPressed:
+                        () => setState(() {
+                          _obscureConfirmPassword = !_obscureConfirmPassword;
+                        }),
                   ),
                 ),
                 const SizedBox(height: 32),
 
-                // Reset Password Button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -220,7 +206,7 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                                 ),
                               ),
                             )
-                            : Text(
+                            : const Text(
                               'Reset Password',
                               style: TextStyle(
                                 fontSize: 16,
@@ -232,11 +218,10 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Back to Login
                 Center(
                   child: TextButton(
                     onPressed:
-                        () => Navigator.push(
+                        () => Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
                             builder: (context) => const LoginScreen(),

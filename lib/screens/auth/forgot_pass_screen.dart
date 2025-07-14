@@ -96,19 +96,17 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             setState(() => _isLoading = true);
 
                             try {
-                              // ✅ Send OTP and get it back
-                              final otp = await authService.sendOtp(email);
+                              // ✅ Send reset OTP
+                              await authService.sendResetOtp(email);
 
-                              // ✅ Navigate to OTP screen with email + otp
+                              // ✅ Navigate to OTP Verification Screen
                               if (mounted) {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder:
-                                        (_) => OtpVerificationScreen(
-                                          email: email,
-                                          generatedOtp: otp,
-                                        ),
+                                        (_) =>
+                                            OtpVerificationScreen(email: email),
                                   ),
                                 );
                               }
