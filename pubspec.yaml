@@ -68,10 +68,11 @@ flutter:
   assets:
     - images/chatting.png
     - images/connect.png
-    - icons/id.png
-    - icons/fb.png
     - icons/google.png
-    - icons/tele.png
+    - icons/home.png
+    - icons/message.png
+    - icons/tv.png
+    - icons/user.png
     
 
   # An image asset can refer to one or more resolution-specific "variants", see

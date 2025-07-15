@@ -1,7 +1,8 @@
-// home.dart
 import 'package:flutter/material.dart';
 import 'package:live/auth/auth_service.dart';
+import 'package:live/components/appbar.dart';
 import 'package:live/components/bottom_nav.dart';
+import 'package:live/screens/auth/login_screen.dart';
 import 'package:live/screens/theme/theme_provider.dart';
 import 'package:provider/provider.dart';
 
@@ -18,25 +19,29 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void logout() async {
     await authService.signOut();
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDarkMode = themeProvider.isDarkMode;
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: CustomAppBar(
         title: const Text('Home'),
-        actions: [
-          IconButton(
-            onPressed: logout,
-            icon: Icon(
-              Icons.logout,
-              color: isDarkMode ? Colors.white : const Color(0xFF7C56E1),
-            ),
-          ),
-        ],
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+        centerTitle: true,
+        onToggleDarkMode: () async {
+          final themeProvider = Provider.of<ThemeProvider>(
+            context,
+            listen: false,
+          );
+          await themeProvider.toggleTheme(!themeProvider.isDarkMode);
+        },
+        onSignOut: logout,
       ),
       body: Center(child: CustomBottomNavBar.getPageContent(_selectedIndex)),
       bottomNavigationBar: CustomBottomNavBar(
@@ -46,7 +51,6 @@ class _HomeScreenState extends State<HomeScreen> {
             _selectedIndex = index;
           });
         },
-        isDarkMode: isDarkMode,
       ),
     );
   }
