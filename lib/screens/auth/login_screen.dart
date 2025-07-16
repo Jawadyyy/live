@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:live/auth/auth_service.dart';
+import 'package:live/components/bottom_nav.dart';
 import 'package:live/components/text_field.dart';
 import 'package:live/screens/auth/forgot_pass_screen.dart';
 import 'package:live/screens/auth/signup_screen.dart';
-import 'package:live/screens/main/home.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -40,7 +40,7 @@ class _LoginScreenState extends State<LoginScreen> {
         // Navigate to home screen after successful login
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => HomeScreen()),
+          MaterialPageRoute(builder: (context) => const CustomBottomNavBar()),
         );
       }
     } catch (e) {
@@ -241,7 +241,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => HomeScreen(),
+                              builder: (context) => const CustomBottomNavBar(),
                             ),
                           );
                         } else {
