@@ -48,6 +48,7 @@ class _SignupScreenState extends State<SignupScreen> {
       await authService.signUpWithEmailPassword(
         _emailController.text.trim(),
         _passwordController.text.trim(),
+        phoneNumber: _phoneNumber,
       );
 
       if (mounted) {

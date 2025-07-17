@@ -18,9 +18,24 @@ class AuthService {
 
   Future<AuthResponse> signUpWithEmailPassword(
     String email,
-    String password,
-  ) async {
-    return await _supabase.auth.signUp(email: email, password: password);
+    String password, {
+    String? phoneNumber,
+  }) async {
+    final response = await _supabase.auth.signUp(
+      email: email,
+      password: password,
+    );
+
+    final user = response.user;
+    if (user == null) throw Exception("User creation failed");
+
+    await _supabase.from('users').insert({
+      'id': user.id,
+      'email': email,
+      'phone_number': phoneNumber ?? '',
+    });
+
+    return response;
   }
 
   Future<void> signOut() async {
@@ -87,5 +102,15 @@ class AuthService {
       UserAttributes(password: newPassword),
     );
     if (response.user == null) throw Exception("Failed to update password");
+  }
+
+  Future<Map<String, dynamic>?> fetchUserProfile() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return null;
+
+    final response =
+        await _supabase.from('users').select().eq('id', user.id).single();
+
+    return response;
   }
 }

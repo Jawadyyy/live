@@ -4,6 +4,7 @@ import 'package:live/components/bottom_nav.dart';
 import 'package:live/components/text_field.dart';
 import 'package:live/screens/auth/forgot_pass_screen.dart';
 import 'package:live/screens/auth/signup_screen.dart';
+import 'package:live/screens/main/profile_setup.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -37,11 +38,19 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (response.session != null && mounted) {
-        // Navigate to home screen after successful login
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const CustomBottomNavBar()),
-        );
+        final profile = await authService.fetchUserProfile();
+
+        if (profile != null && profile['is_profile_complete'] == false) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const ProfileSetupScreen()),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const CustomBottomNavBar()),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {

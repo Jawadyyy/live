@@ -29,7 +29,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       appBar: CustomAppBar(
-        title: const Text('Home'),
+        title: const Text('Profile'),
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
         centerTitle: true,
         onToggleDarkMode: () async {
@@ -41,7 +41,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         },
         onSignOut: logout,
       ),
-      body: Center(child: Text("Home")),
+      body: Center(child: Text("Profile")),
     );
   }
 }
