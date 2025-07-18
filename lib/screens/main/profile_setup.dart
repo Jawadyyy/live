@@ -5,9 +5,12 @@ import 'dart:io';
 import 'package:intl/intl.dart';
 import 'package:live/auth/auth_service.dart';
 import 'package:live/components/bottom_nav.dart';
+import 'package:live/components/secondary_button.dart';
 import 'package:live/screens/theme/theme_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:live/components/primary_button.dart';
+import 'package:live/components/text_field.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -202,11 +205,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   Widget _buildStepContent() {
     switch (_currentStep) {
       case 1:
-        return _buildTextField(
-          label: 'Username',
-          hint: 'Enter your username',
-          icon: Icons.person_outline,
+        return CustomTextField(
           controller: _usernameController,
+          label: 'Username',
+          hintText: 'Enter your username',
+          prefixIcon: Icons.person_outline,
           validator:
               (value) => value!.isEmpty ? 'Please enter a username' : null,
         );
@@ -216,11 +219,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             GestureDetector(
               onTap: () => _selectDate(context),
               child: AbsorbPointer(
-                child: _buildTextField(
-                  label: 'Date of Birth',
-                  hint: 'Select your date of birth',
-                  icon: Icons.calendar_today_outlined,
+                child: CustomTextField(
                   controller: _dobController,
+                  label: 'Date of Birth',
+                  hintText: 'Select your date of birth',
+                  prefixIcon: Icons.calendar_today_outlined,
                   validator:
                       (value) =>
                           value!.isEmpty
@@ -329,12 +332,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               ],
             ),
             const SizedBox(height: 30),
-            _buildTextField(
-              label: 'Bio',
-              hint: 'Tell us about yourself...',
-              icon: Icons.edit,
+            CustomTextField(
               controller: _bioController,
-              maxLines: 4,
+              label: 'Bio',
+              hintText: 'Tell us about yourself...',
+              prefixIcon: Icons.edit,
               validator:
                   (value) => value!.isEmpty ? 'Please write a short bio' : null,
             ),
@@ -362,12 +364,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => Navigator.of(context).pop(),
-                    color: colorScheme.onBackground,
-                  ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 64),
                   Text(
                     "Complete Your Profile",
                     style: TextStyle(
@@ -407,59 +404,23 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       children: [
                         if (_currentStep > 1)
                           Expanded(
-                            child: OutlinedButton(
+                            child: SecondButton(
+                              text: "Back",
                               onPressed: _previousStep,
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                side: BorderSide(color: colorScheme.primary),
-                              ),
-                              child: Text(
-                                "Back",
-                                style: TextStyle(
-                                  color: colorScheme.primary,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                              isFullWidth: true,
+                              textColor: Colors.white,
                             ),
                           ),
                         if (_currentStep > 1) const SizedBox(width: 16),
                         Expanded(
-                          child: ElevatedButton(
+                          child: MainButton(
+                            text:
+                                _currentStep < _totalSteps
+                                    ? "Continue"
+                                    : "Finish",
                             onPressed: _isLoading ? null : _nextStep,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: colorScheme.primary,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 0,
-                            ),
-                            child:
-                                _isLoading
-                                    ? SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: colorScheme.onPrimary,
-                                      ),
-                                    )
-                                    : Text(
-                                      _currentStep < _totalSteps
-                                          ? "Continue"
-                                          : "Finish",
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: colorScheme.onPrimary,
-                                      ),
-                                    ),
+                            isFullWidth: true,
+                            isLoading: _isLoading,
                           ),
                         ),
                       ],
@@ -471,64 +432,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildTextField({
-    required String label,
-    required String hint,
-    required IconData icon,
-    required TextEditingController controller,
-    String? Function(String?)? validator,
-    int? maxLines = 1,
-  }) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 8.0, bottom: 4),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: colorScheme.onSurface.withOpacity(0.8),
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-        TextFormField(
-          controller: controller,
-          maxLines: maxLines,
-          style: TextStyle(color: colorScheme.onSurface),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.5)),
-            prefixIcon: Icon(icon, color: colorScheme.primary),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
-            ),
-            filled: true,
-            fillColor: colorScheme.surfaceVariant.withOpacity(0.3),
-            contentPadding: const EdgeInsets.symmetric(
-              vertical: 16,
-              horizontal: 16,
-            ),
-          ),
-          validator: validator,
-        ),
-      ],
     );
   }
 }
