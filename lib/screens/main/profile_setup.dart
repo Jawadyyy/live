@@ -35,6 +35,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   Future<void> _selectDate(BuildContext context) async {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final theme = themeProvider.getTheme(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -46,11 +47,20 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: theme.colorScheme.primary,
-              onPrimary: theme.colorScheme.onPrimary,
-              onSurface: theme.colorScheme.onSurface,
-            ),
+            colorScheme:
+                isDark
+                    ? ColorScheme.dark(
+                      primary: theme.colorScheme.primary,
+                      onPrimary: theme.colorScheme.onPrimary,
+                      surface: theme.colorScheme.surface,
+                      onSurface: theme.colorScheme.onSurface,
+                    )
+                    : ColorScheme.light(
+                      primary: theme.colorScheme.primary,
+                      onPrimary: theme.colorScheme.onPrimary,
+                      surface: theme.colorScheme.surface,
+                      onSurface: theme.colorScheme.onSurface,
+                    ),
             textButtonTheme: TextButtonThemeData(
               style: TextButton.styleFrom(
                 foregroundColor: theme.colorScheme.primary,
@@ -66,7 +76,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       setState(() {
         _selectedDate = picked;
         _dobController.text = DateFormat('yyyy-MM-dd').format(picked);
-        // Calculate age automatically
         final age = (DateTime.now().difference(picked).inDays / 365).floor();
         _calculatedAge = '$age years';
       });
