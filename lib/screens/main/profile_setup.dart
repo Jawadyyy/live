@@ -234,12 +234,21 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceVariant,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.surfaceVariant.withOpacity(0.3),
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.surfaceVariant,
+                    width: 1,
+                  ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.info_outline),
+                    Icon(
+                      Icons.info_outline,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                     const SizedBox(width: 10),
                     Text(
                       'Your age: $_calculatedAge',
@@ -256,32 +265,68 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       case 3:
         return Column(
           children: [
-            GestureDetector(
-              onTap: _pickImage,
-              child: CircleAvatar(
-                radius: 60,
-                backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
-                backgroundImage:
-                    _profileImage != null
-                        ? FileImage(File(_profileImage!.path))
-                        : null,
-                child:
-                    _profileImage == null
-                        ? Icon(
-                          Icons.add_a_photo,
-                          size: 40,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        )
-                        : null,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Upload Profile Picture',
-              style: TextStyle(
-                fontSize: 16,
-                color: Theme.of(context).colorScheme.onBackground,
-              ),
+            Stack(
+              children: [
+                Container(
+                  width: 140,
+                  height: 140,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withOpacity(0.2),
+                      width: 2,
+                    ),
+                  ),
+                  child: ClipOval(
+                    child:
+                        _profileImage != null
+                            ? Image.file(
+                              File(_profileImage!.path),
+                              fit: BoxFit.cover,
+                            )
+                            : Container(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceVariant.withOpacity(0.3),
+                              child: Icon(
+                                Icons.person,
+                                size: 60,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant.withOpacity(0.5),
+                              ),
+                            ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: GestureDetector(
+                    onTap: _pickImage,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 6,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.edit,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.onPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 30),
             _buildTextField(
@@ -307,101 +352,123 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
     return Scaffold(
       backgroundColor: colorScheme.background,
-      appBar: AppBar(
-        title: const Text("Complete Your Profile"),
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: colorScheme.surface,
-        foregroundColor: colorScheme.onSurface,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Column(
-          children: [
-            const SizedBox(height: 20),
-            Text(
-              "Let's get to know you better",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-                color: colorScheme.onBackground.withOpacity(0.7),
-              ),
-            ),
-            const SizedBox(height: 20),
-            StepProgressIndicator(
-              currentStep: _currentStep,
-              totalSteps: _totalSteps,
-            ),
-            const SizedBox(height: 40),
-            Form(
-              key: _formKey,
-              child: Column(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header with step indicator
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildStepContent(),
-                  const SizedBox(height: 40),
-                  Row(
-                    children: [
-                      if (_currentStep > 1)
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => Navigator.of(context).pop(),
+                    color: colorScheme.onBackground,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    "Complete Your Profile",
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onBackground,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Step $_currentStep of $_totalSteps",
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: colorScheme.onBackground.withOpacity(0.6),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  StepProgressIndicator(
+                    currentStep: _currentStep,
+                    totalSteps: _totalSteps,
+                  ),
+                  const SizedBox(height: 32),
+                ],
+              ),
+
+              // Form content
+              Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      child: _buildStepContent(),
+                    ),
+                    const SizedBox(height: 40),
+                    Row(
+                      children: [
+                        if (_currentStep > 1)
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _previousStep,
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                side: BorderSide(color: colorScheme.primary),
+                              ),
+                              child: Text(
+                                "Back",
+                                style: TextStyle(
+                                  color: colorScheme.primary,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (_currentStep > 1) const SizedBox(width: 16),
                         Expanded(
-                          child: OutlinedButton(
-                            onPressed: _previousStep,
-                            style: OutlinedButton.styleFrom(
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _nextStep,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: colorScheme.primary,
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              side: BorderSide(color: colorScheme.primary),
+                              elevation: 0,
                             ),
-                            child: Text(
-                              "Back",
-                              style: TextStyle(
-                                color: colorScheme.primary,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                            child:
+                                _isLoading
+                                    ? SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: colorScheme.onPrimary,
+                                      ),
+                                    )
+                                    : Text(
+                                      _currentStep < _totalSteps
+                                          ? "Continue"
+                                          : "Finish",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: colorScheme.onPrimary,
+                                      ),
+                                    ),
                           ),
                         ),
-                      if (_currentStep > 1) const SizedBox(width: 16),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _nextStep,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: colorScheme.primary,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 0,
-                          ),
-                          child:
-                              _isLoading
-                                  ? SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: colorScheme.onPrimary,
-                                    ),
-                                  )
-                                  : Text(
-                                    _currentStep < _totalSteps
-                                        ? "Next"
-                                        : "Complete Profile",
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: colorScheme.onPrimary,
-                                    ),
-                                  ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -418,36 +485,50 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return TextFormField(
-      controller: controller,
-      maxLines: maxLines,
-      style: TextStyle(color: colorScheme.onSurface),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.7)),
-        hintText: hint,
-        hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.5)),
-        prefixIcon: Icon(icon, color: colorScheme.onSurface.withOpacity(0.7)),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: colorScheme.outline),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 8.0, bottom: 4),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: colorScheme.onSurface.withOpacity(0.8),
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: colorScheme.outline.withOpacity(0.7)),
+        TextFormField(
+          controller: controller,
+          maxLines: maxLines,
+          style: TextStyle(color: colorScheme.onSurface),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: colorScheme.onSurface.withOpacity(0.5)),
+            prefixIcon: Icon(icon, color: colorScheme.primary),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
+            ),
+            filled: true,
+            fillColor: colorScheme.surfaceVariant.withOpacity(0.3),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 16,
+              horizontal: 16,
+            ),
+          ),
+          validator: validator,
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: colorScheme.primary, width: 2),
-        ),
-        filled: true,
-        fillColor: colorScheme.surface,
-        contentPadding: const EdgeInsets.symmetric(
-          vertical: 16,
-          horizontal: 16,
-        ),
-      ),
-      validator: validator,
+      ],
     );
   }
 }
@@ -465,53 +546,68 @@ class StepProgressIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final activeColor = colorScheme.primary;
+    final inactiveColor = colorScheme.surfaceVariant.withOpacity(0.3);
 
     return Column(
       children: [
+        SizedBox(
+          height: 4,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(
+              value: currentStep / totalSteps,
+              backgroundColor: inactiveColor,
+              color: activeColor,
+              minHeight: 4,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
         Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(totalSteps * 2 - 1, (index) {
-            final isCircle = index % 2 == 0;
-            final stepIndex = (index ~/ 2) + 1;
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: List.generate(totalSteps, (index) {
+            final stepNumber = index + 1;
+            final isActive = stepNumber <= currentStep;
 
-            if (isCircle) {
-              final isActive = stepIndex <= currentStep;
-              return CircleAvatar(
-                radius: 16,
-                backgroundColor:
-                    isActive ? colorScheme.primary : colorScheme.surfaceVariant,
-                child: Text(
-                  '$stepIndex',
-                  style: TextStyle(
-                    color:
-                        isActive
-                            ? colorScheme.onPrimary
-                            : colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.bold,
+            return Column(
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: isActive ? activeColor : inactiveColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      '$stepNumber',
+                      style: TextStyle(
+                        color:
+                            isActive
+                                ? colorScheme.onPrimary
+                                : colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
                 ),
-              );
-            } else {
-              final isLineActive = stepIndex < currentStep;
-              return Expanded(
-                child: Container(
-                  height: 2,
-                  color:
-                      isLineActive
-                          ? colorScheme.primary
-                          : colorScheme.surfaceVariant,
+                const SizedBox(height: 4),
+                Text(
+                  _getStepTitle(stepNumber),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                    color:
+                        isActive
+                            ? colorScheme.onBackground
+                            : colorScheme.onBackground.withOpacity(0.6),
+                  ),
                 ),
-              );
-            }
+              ],
+            );
           }),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          _getStepTitle(currentStep),
-          style: TextStyle(
-            fontSize: 14,
-            color: colorScheme.onBackground.withOpacity(0.8),
-          ),
         ),
       ],
     );
@@ -520,11 +616,11 @@ class StepProgressIndicator extends StatelessWidget {
   String _getStepTitle(int step) {
     switch (step) {
       case 1:
-        return 'Basic Info';
+        return 'Username';
       case 2:
         return 'Birth Date';
       case 3:
-        return 'Profile Picture';
+        return 'Profile';
       default:
         return 'Step $step';
     }
