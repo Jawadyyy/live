@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import 'package:intl/intl.dart';
 import 'package:live/auth/auth_service.dart';
 import 'package:live/components/bottom_nav.dart';
@@ -17,15 +19,18 @@ class ProfileSetupScreen extends StatefulWidget {
 class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
-  final _ageController = TextEditingController();
+  final _bioController = TextEditingController();
   final _dobController = TextEditingController();
 
   final AuthService _authService = AuthService();
+  final ImagePicker _picker = ImagePicker();
 
   bool _isLoading = false;
   DateTime? _selectedDate;
   int _currentStep = 1;
   final int _totalSteps = 3;
+  XFile? _profileImage;
+  String? _calculatedAge;
 
   Future<void> _selectDate(BuildContext context) async {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
@@ -61,14 +66,41 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       setState(() {
         _selectedDate = picked;
         _dobController.text = DateFormat('yyyy-MM-dd').format(picked);
+        // Calculate age automatically
         final age = (DateTime.now().difference(picked).inDays / 365).floor();
-        _ageController.text = age.toString();
+        _calculatedAge = '$age years';
       });
+    }
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      if (image != null) {
+        setState(() {
+          _profileImage = image;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to pick image: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
     }
   }
 
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_profileImage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please upload a profile picture')),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
 
@@ -76,12 +108,48 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) throw Exception("User not found");
 
+      // Prepare file
+      final fileExtension = _profileImage!.path.split('.').last;
+      final fileName = '${user.id}_profile.$fileExtension';
+      final fileBytes = await _profileImage!.readAsBytes();
+
+      // Upload or overwrite profile picture
+      try {
+        await Supabase.instance.client.storage
+            .from('profile-pictures')
+            .updateBinary(
+              fileName,
+              fileBytes,
+              fileOptions: const FileOptions(upsert: true),
+            );
+      } on StorageException catch (e) {
+        if (e.statusCode == 404) {
+          // First time upload
+          await Supabase.instance.client.storage
+              .from('profile-pictures')
+              .uploadBinary(
+                fileName,
+                fileBytes,
+                fileOptions: const FileOptions(upsert: true),
+              );
+        } else {
+          rethrow;
+        }
+      }
+
+      final imageUrl = Supabase.instance.client.storage
+          .from('profile-pictures')
+          .getPublicUrl(fileName);
+
+      // Update user profile data
       await Supabase.instance.client
           .from('users')
           .update({
             'username': _usernameController.text.trim(),
-            'age': int.tryParse(_ageController.text.trim()),
+            'bio': _bioController.text.trim(),
             'dob': _dobController.text.trim(),
+            'age': _calculatedAge?.replaceAll(' years', ''),
+            'avatar_url': imageUrl,
             'is_profile_complete': true,
           })
           .eq('id', user.id);
@@ -94,18 +162,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       }
     } catch (e) {
       if (mounted) {
-        final theme = Theme.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: DefaultTextStyle(
-              style: TextStyle(color: theme.colorScheme.onError),
-              child: Text('Error: $e'),
-            ),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-            backgroundColor: theme.colorScheme.error,
+            content: Text('Error: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
@@ -134,48 +194,97 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     switch (_currentStep) {
       case 1:
         return _buildTextField(
-          context: context,
-          controller: _usernameController,
           label: 'Username',
           hint: 'Enter your username',
           icon: Icons.person_outline,
+          controller: _usernameController,
           validator:
               (value) => value!.isEmpty ? 'Please enter a username' : null,
         );
       case 2:
-        return _buildTextField(
-          context: context,
-          controller: _ageController,
-          label: 'Age',
-          hint: 'Enter your age',
-          icon: Icons.cake_outlined,
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          validator: (value) {
-            if (value!.isEmpty) return 'Please enter your age';
-            final age = int.tryParse(value);
-            if (age == null || age < 13) return 'You must be at least 13';
-            if (age > 120) return 'Please enter a valid age';
-            return null;
-          },
+        return Column(
+          children: [
+            GestureDetector(
+              onTap: () => _selectDate(context),
+              child: AbsorbPointer(
+                child: _buildTextField(
+                  label: 'Date of Birth',
+                  hint: 'Select your date of birth',
+                  icon: Icons.calendar_today_outlined,
+                  controller: _dobController,
+                  validator:
+                      (value) =>
+                          value!.isEmpty
+                              ? 'Please select your date of birth'
+                              : null,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            if (_calculatedAge != null)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceVariant,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Your age: $_calculatedAge',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
         );
       case 3:
-        return GestureDetector(
-          onTap: () => _selectDate(context),
-          child: AbsorbPointer(
-            child: _buildTextField(
-              context: context,
-              controller: _dobController,
-              label: 'Date of Birth',
-              hint: 'Select your date of birth',
-              icon: Icons.calendar_today_outlined,
-              validator:
-                  (value) =>
-                      value!.isEmpty
-                          ? 'Please select your date of birth'
-                          : null,
+        return Column(
+          children: [
+            GestureDetector(
+              onTap: _pickImage,
+              child: CircleAvatar(
+                radius: 60,
+                backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+                backgroundImage:
+                    _profileImage != null
+                        ? FileImage(File(_profileImage!.path))
+                        : null,
+                child:
+                    _profileImage == null
+                        ? Icon(
+                          Icons.add_a_photo,
+                          size: 40,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        )
+                        : null,
+              ),
             ),
-          ),
+            const SizedBox(height: 20),
+            Text(
+              'Upload Profile Picture',
+              style: TextStyle(
+                fontSize: 16,
+                color: Theme.of(context).colorScheme.onBackground,
+              ),
+            ),
+            const SizedBox(height: 30),
+            _buildTextField(
+              label: 'Bio',
+              hint: 'Tell us about yourself...',
+              icon: Icons.edit,
+              controller: _bioController,
+              maxLines: 4,
+              validator:
+                  (value) => value!.isEmpty ? 'Please write a short bio' : null,
+            ),
+          ],
         );
       default:
         return Container();
@@ -290,22 +399,19 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 
   Widget _buildTextField({
-    required BuildContext context,
-    required TextEditingController controller,
     required String label,
     required String hint,
     required IconData icon,
+    required TextEditingController controller,
     String? Function(String?)? validator,
-    TextInputType? keyboardType,
-    List<TextInputFormatter>? inputFormatters,
+    int? maxLines = 1,
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
     return TextFormField(
       controller: controller,
-      keyboardType: keyboardType,
-      inputFormatters: inputFormatters,
+      maxLines: maxLines,
       style: TextStyle(color: colorScheme.onSurface),
       decoration: InputDecoration(
         labelText: label,
@@ -405,11 +511,11 @@ class StepProgressIndicator extends StatelessWidget {
   String _getStepTitle(int step) {
     switch (step) {
       case 1:
-        return 'Username';
+        return 'Basic Info';
       case 2:
-        return 'Age';
+        return 'Birth Date';
       case 3:
-        return 'Date of Birth';
+        return 'Profile Picture';
       default:
         return 'Step $step';
     }
