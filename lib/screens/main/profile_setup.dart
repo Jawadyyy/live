@@ -24,6 +24,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   bool _isLoading = false;
   DateTime? _selectedDate;
+  int _currentStep = 1;
+  final int _totalSteps = 3;
 
   Future<void> _selectDate(BuildContext context) async {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
@@ -59,7 +61,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       setState(() {
         _selectedDate = picked;
         _dobController.text = DateFormat('yyyy-MM-dd').format(picked);
-        // Calculate age automatically
         final age = (DateTime.now().difference(picked).inDays / 365).floor();
         _ageController.text = age.toString();
       });
@@ -115,6 +116,72 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     }
   }
 
+  void _nextStep() {
+    if (_currentStep < _totalSteps) {
+      setState(() => _currentStep++);
+    } else {
+      _saveProfile();
+    }
+  }
+
+  void _previousStep() {
+    if (_currentStep > 1) {
+      setState(() => _currentStep--);
+    }
+  }
+
+  Widget _buildStepContent() {
+    switch (_currentStep) {
+      case 1:
+        return _buildTextField(
+          context: context,
+          controller: _usernameController,
+          label: 'Username',
+          hint: 'Enter your username',
+          icon: Icons.person_outline,
+          validator:
+              (value) => value!.isEmpty ? 'Please enter a username' : null,
+        );
+      case 2:
+        return _buildTextField(
+          context: context,
+          controller: _ageController,
+          label: 'Age',
+          hint: 'Enter your age',
+          icon: Icons.cake_outlined,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          validator: (value) {
+            if (value!.isEmpty) return 'Please enter your age';
+            final age = int.tryParse(value);
+            if (age == null || age < 13) return 'You must be at least 13';
+            if (age > 120) return 'Please enter a valid age';
+            return null;
+          },
+        );
+      case 3:
+        return GestureDetector(
+          onTap: () => _selectDate(context),
+          child: AbsorbPointer(
+            child: _buildTextField(
+              context: context,
+              controller: _dobController,
+              label: 'Date of Birth',
+              hint: 'Select your date of birth',
+              icon: Icons.calendar_today_outlined,
+              validator:
+                  (value) =>
+                      value!.isEmpty
+                          ? 'Please select your date of birth'
+                          : null,
+            ),
+          ),
+        );
+      default:
+        return Container();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -142,89 +209,76 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 color: colorScheme.onBackground.withOpacity(0.7),
               ),
             ),
+            const SizedBox(height: 20),
+            StepProgressIndicator(
+              currentStep: _currentStep,
+              totalSteps: _totalSteps,
+            ),
             const SizedBox(height: 40),
             Form(
               key: _formKey,
               child: Column(
                 children: [
-                  _buildTextField(
-                    context: context,
-                    controller: _usernameController,
-                    label: 'Username',
-                    hint: 'Enter your username',
-                    icon: Icons.person_outline,
-                    validator:
-                        (value) =>
-                            value!.isEmpty ? 'Please enter a username' : null,
-                  ),
-                  const SizedBox(height: 20),
-                  _buildTextField(
-                    context: context,
-                    controller: _ageController,
-                    label: 'Age',
-                    hint: 'Enter your age',
-                    icon: Icons.cake_outlined,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    validator: (value) {
-                      if (value!.isEmpty) return 'Please enter your age';
-                      final age = int.tryParse(value);
-                      if (age == null || age < 13)
-                        return 'You must be at least 13';
-                      if (age > 120) return 'Please enter a valid age';
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  GestureDetector(
-                    onTap: () => _selectDate(context),
-                    child: AbsorbPointer(
-                      child: _buildTextField(
-                        context: context,
-                        controller: _dobController,
-                        label: 'Date of Birth',
-                        hint: 'Select your date of birth',
-                        icon: Icons.calendar_today_outlined,
-                        validator:
-                            (value) =>
-                                value!.isEmpty
-                                    ? 'Please select your date of birth'
-                                    : null,
-                      ),
-                    ),
-                  ),
+                  _buildStepContent(),
                   const SizedBox(height: 40),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _saveProfile,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: colorScheme.primary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                      child:
-                          _isLoading
-                              ? SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: colorScheme.onPrimary,
-                                ),
-                              )
-                              : Text(
-                                "Complete Profile",
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.onPrimary,
-                                ),
+                  Row(
+                    children: [
+                      if (_currentStep > 1)
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: _previousStep,
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                    ),
+                              side: BorderSide(color: colorScheme.primary),
+                            ),
+                            child: Text(
+                              "Back",
+                              style: TextStyle(
+                                color: colorScheme.primary,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (_currentStep > 1) const SizedBox(width: 16),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _nextStep,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colorScheme.primary,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ),
+                          child:
+                              _isLoading
+                                  ? SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: colorScheme.onPrimary,
+                                    ),
+                                  )
+                                  : Text(
+                                    _currentStep < _totalSteps
+                                        ? "Next"
+                                        : "Complete Profile",
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: colorScheme.onPrimary,
+                                    ),
+                                  ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -280,5 +334,84 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       ),
       validator: validator,
     );
+  }
+}
+
+class StepProgressIndicator extends StatelessWidget {
+  final int currentStep;
+  final int totalSteps;
+
+  const StepProgressIndicator({
+    super.key,
+    required this.currentStep,
+    required this.totalSteps,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(totalSteps * 2 - 1, (index) {
+            final isCircle = index % 2 == 0;
+            final stepIndex = (index ~/ 2) + 1;
+
+            if (isCircle) {
+              final isActive = stepIndex <= currentStep;
+              return CircleAvatar(
+                radius: 16,
+                backgroundColor:
+                    isActive ? colorScheme.primary : colorScheme.surfaceVariant,
+                child: Text(
+                  '$stepIndex',
+                  style: TextStyle(
+                    color:
+                        isActive
+                            ? colorScheme.onPrimary
+                            : colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              );
+            } else {
+              final isLineActive = stepIndex < currentStep;
+              return Expanded(
+                child: Container(
+                  height: 2,
+                  color:
+                      isLineActive
+                          ? colorScheme.primary
+                          : colorScheme.surfaceVariant,
+                ),
+              );
+            }
+          }),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _getStepTitle(currentStep),
+          style: TextStyle(
+            fontSize: 14,
+            color: colorScheme.onBackground.withOpacity(0.8),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _getStepTitle(int step) {
+    switch (step) {
+      case 1:
+        return 'Username';
+      case 2:
+        return 'Age';
+      case 3:
+        return 'Date of Birth';
+      default:
+        return 'Step $step';
+    }
   }
 }
