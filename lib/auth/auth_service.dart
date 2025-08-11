@@ -6,16 +6,6 @@ class AuthService {
   final SupabaseClient _supabase = Supabase.instance.client;
   final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
 
-  Future<AuthResponse> signInWithEmailPassword(
-    String email,
-    String password,
-  ) async {
-    return await _supabase.auth.signInWithPassword(
-      email: email,
-      password: password,
-    );
-  }
-
   Future<AuthResponse> signUpWithEmailPassword(
     String email,
     String password, {
@@ -34,6 +24,32 @@ class AuthService {
       'email': email,
       'phone_number': phoneNumber ?? '',
     });
+
+    return response;
+  }
+
+  Future<AuthResponse> signInWithEmailPassword(
+    String email,
+    String password,
+  ) async {
+    final response = await _supabase.auth.signInWithPassword(
+      email: email,
+      password: password,
+    );
+
+    final user = response.user;
+    if (user == null) throw Exception("Login failed");
+
+    final profile =
+        await _supabase.from('users').select().eq('id', user.id).maybeSingle();
+
+    if (profile == null) {
+      await _supabase.from('users').insert({
+        'id': user.id,
+        'email': email,
+        'phone_number': '',
+      });
+    }
 
     return response;
   }

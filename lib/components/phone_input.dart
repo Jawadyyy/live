@@ -71,14 +71,11 @@ class _PhoneFormState extends State<PhoneForm> {
           vertical: 16,
         ),
       ),
-      initialCountryCode: 'US',
+      initialCountryCode: 'PK',
       onChanged: (phone) {
         widget.onPhoneChanged(phone.completeNumber);
       },
-      onCountryChanged: (country) {
-        // ignore: avoid_print
-        print('Country changed to: ${country.name}');
-      },
+      onCountryChanged: (country) {},
     );
   }
 }

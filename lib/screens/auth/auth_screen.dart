@@ -93,7 +93,7 @@ class _AuthScreenState extends State<AuthScreen>
                       Column(
                         children: [
                           Text(
-                            'Ready to Find Your',
+                            'Ready to Connect and',
                             style: theme.textTheme.displayLarge?.copyWith(
                               fontSize: isSmallScreen ? 28 : 32,
                               fontWeight: FontWeight.w700,
@@ -102,7 +102,7 @@ class _AuthScreenState extends State<AuthScreen>
                             ),
                           ),
                           Text(
-                            'Match?',
+                            'Go Live?',
                             style: theme.textTheme.displayLarge?.copyWith(
                               fontSize: isSmallScreen ? 32 : 38,
                               fontWeight: FontWeight.w900,
@@ -120,7 +120,7 @@ class _AuthScreenState extends State<AuthScreen>
                           horizontal: isSmallScreen ? 12.0 : 24.0,
                         ),
                         child: Text(
-                          "Let's join and start connecting",
+                          "Join now to share your world in real time.",
                           style: theme.textTheme.bodyLarge?.copyWith(
                             fontSize: isSmallScreen ? 16 : 18,
                             height: 1.5,
@@ -129,6 +129,7 @@ class _AuthScreenState extends State<AuthScreen>
                           textAlign: TextAlign.center,
                         ),
                       ),
+
                       SizedBox(height: isSmallScreen ? 40 : 60),
 
                       // Join Button

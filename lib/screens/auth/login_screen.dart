@@ -4,7 +4,7 @@ import 'package:live/components/bottom_nav.dart';
 import 'package:live/components/text_field.dart';
 import 'package:live/screens/auth/forgot_pass_screen.dart';
 import 'package:live/screens/auth/signup_screen.dart';
-import 'package:live/screens/main/profile_setup.dart';
+import 'package:live/screens/main/profile_screen/profile_setup.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});

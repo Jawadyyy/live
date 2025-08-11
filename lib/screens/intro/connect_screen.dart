@@ -124,7 +124,7 @@ class ConnectScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Show Your True Self',
+                            'Express Yourself',
                             style: theme.textTheme.displayLarge?.copyWith(
                               fontSize:
                                   isLargeScreen
@@ -147,18 +147,21 @@ class ConnectScreen extends StatelessWidget {
                               children: [
                                 const TextSpan(
                                   text:
-                                      'Upload your best photos and write a bio that reflects who you are. ',
+                                      'Share your moments, ideas, and creativity with the community. ',
                                 ),
                                 TextSpan(
                                   text:
-                                      'Be genuine and let your personality shine!',
-                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                      'Let your unique voice and style stand out!',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ],
                             ),
                           ),
                         ],
                       ),
+
                       SizedBox(height: isSmallScreen ? 24 : 40),
 
                       // Page indicators

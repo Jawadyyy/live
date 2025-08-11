@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
-import 'package:live/screens/main/home.dart';
-import 'package:live/screens/main/chat.dart';
-import 'package:live/screens/main/stream.dart';
-import 'package:live/screens/main/profile.dart';
+import 'package:live/screens/main/home_screen/home.dart';
+import 'package:live/screens/main/chat_screen/chat.dart';
+import 'package:live/screens/main/stream_screen/stream.dart';
+import 'package:live/screens/main/profile_screen/profile.dart';
 
 class CustomBottomNavBar extends StatefulWidget {
   const CustomBottomNavBar({super.key});

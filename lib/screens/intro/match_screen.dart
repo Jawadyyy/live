@@ -124,7 +124,7 @@ class MatchScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Find Your Chat Partner',
+                            'Connect & Chat Live',
                             style: theme.textTheme.displayLarge?.copyWith(
                               fontSize:
                                   isLargeScreen
@@ -137,9 +137,8 @@ class MatchScreen extends StatelessWidget {
                           ),
                           SizedBox(height: isSmallScreen ? 12 : 20),
                           Text(
-                            'Meaningful connections start here. Whether for friendship, '
-                            'shared interests, or just someone to chat with - you\'re in '
-                            'the right place.',
+                            'Join real-time conversations, share your thoughts, or stream live. '
+                            'Meet people from around the world who share your interests — all in one place.',
                             style: theme.textTheme.bodyLarge?.copyWith(
                               fontSize: isSmallScreen ? 15 : 17,
                               height: 1.6,
