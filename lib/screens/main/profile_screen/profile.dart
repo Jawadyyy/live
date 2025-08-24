@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:live/auth/auth_service.dart';
+import 'package:live/components/appbar.dart';
 import 'package:live/screens/auth/login_screen.dart';
+import 'package:live/screens/theme/theme_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 
@@ -23,34 +26,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _fetchUserData();
   }
 
+  void logout() async {
+    await authService.signOut();
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+    );
+  }
+
   Future<void> _fetchUserData() async {
     final user = _supabase.auth.currentUser;
     if (user == null) return;
 
-    final response =
-        await _supabase
-            .from('users')
-            .select(
-              'uuid,email,phone_number,username,age,dob,bio,avatar_url,created_at',
-            )
-            .eq('uuid', user.id)
-            .single();
+    try {
+      final response =
+          await _supabase
+              .from('users')
+              .select(
+                'id,email,phone_number,username,age,dob,bio,avatar_url,created_at',
+              )
+              .eq('id', user.id)
+              .maybeSingle();
 
-    if (mounted) {
+      print('Fetched user data: $response');
+
+      if (!mounted) return;
       setState(() {
         _userData = response;
         _isLoading = false;
       });
-    }
-  }
-
-  Future<void> _logout() async {
-    await authService.signOut();
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _userData = null;
+      });
+      debugPrint('Error fetching user data: $e');
     }
   }
 
@@ -76,11 +87,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: CustomAppBar(
         title: const Text('Profile'),
-        actions: [
-          IconButton(icon: const Icon(Icons.logout), onPressed: _logout),
-        ],
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+        centerTitle: true,
+        onToggleDarkMode: () async {
+          final themeProvider = Provider.of<ThemeProvider>(
+            context,
+            listen: false,
+          );
+          await themeProvider.toggleTheme(!themeProvider.isDarkMode);
+        },
+        onSignOut: logout,
       ),
       body:
           _isLoading
@@ -162,7 +180,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                   // Logout Button
                   ElevatedButton.icon(
-                    onPressed: _logout,
+                    onPressed: logout,
                     icon: const Icon(Icons.logout),
                     label: const Text('Log Out'),
                     style: ElevatedButton.styleFrom(

@@ -5,13 +5,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final Widget? title;
   final List<Widget>? actions;
   final bool centerTitle;
-  final bool showBackButton;
   final Color? backgroundColor;
   final double elevation;
-  final VoidCallback? onBackPressed;
   final Widget? leading;
   final double toolbarHeight;
-  final bool automaticallyImplyLeading;
   final double? titleSpacing;
   final TextStyle? titleTextStyle;
   final Gradient? gradient;
@@ -24,13 +21,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.title,
     this.actions,
     this.centerTitle = false,
-    this.showBackButton = true,
     this.backgroundColor,
     this.elevation = 1,
-    this.onBackPressed,
     this.leading,
     this.toolbarHeight = kToolbarHeight,
-    this.automaticallyImplyLeading = true,
     this.titleSpacing,
     this.titleTextStyle,
     this.gradient,
@@ -69,25 +63,32 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       ),
       child: AppBar(
         systemOverlayStyle: systemUiOverlayStyle,
-        automaticallyImplyLeading: automaticallyImplyLeading,
+        automaticallyImplyLeading: false,
         leading:
             leading ??
-            (showBackButton && Navigator.of(context).canPop()
-                ? IconButton(
-                  icon: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: theme.colorScheme.primary.withOpacity(0.1),
-                    ),
-                    child: Icon(
-                      Icons.arrow_back_rounded,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                  onPressed: onBackPressed ?? () => Navigator.of(context).pop(),
-                )
-                : null),
+            Padding(
+              padding: const EdgeInsets.only(left: 12),
+              child: ShaderMask(
+                shaderCallback: (Rect bounds) {
+                  return RadialGradient(
+                    colors: [
+                      Colors.purpleAccent.withOpacity(0.9),
+                      Colors.purple.withOpacity(0.6),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.4, 0.7, 1.0],
+                    center: Alignment.center,
+                    radius: 1,
+                  ).createShader(bounds);
+                },
+                child: Image.asset(
+                  "assets/icons/live.png",
+                  height: 28,
+                  width: 28,
+                  color: Colors.white,
+                ),
+              ),
+            ),
         title:
             title != null
                 ? DefaultTextStyle(
