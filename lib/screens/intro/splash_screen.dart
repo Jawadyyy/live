@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 
+import 'package:live/auth/auth_gate.dart';
 import 'package:live/screens/intro/match_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -29,7 +31,6 @@ class _SplashScreenState extends State<SplashScreen>
       vsync: this,
     );
 
-    // Improved animation curves and timing
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
@@ -76,10 +77,24 @@ class _SplashScreenState extends State<SplashScreen>
     _controller.forward();
 
     Future.delayed(const Duration(seconds: 3), () {
+      _checkAuthenticationAndNavigate();
+    });
+  }
+
+  void _checkAuthenticationAndNavigate() {
+    final session = Supabase.instance.client.auth.currentSession;
+
+    if (session != null) {
+      // User is already logged in, go to AuthGate for profile check
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const AuthGate()),
+      );
+    } else {
+      // User not logged in, show intro flow
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (context) => const MatchScreen()),
       );
-    });
+    }
   }
 
   @override
@@ -164,7 +179,7 @@ class _SplashScreenState extends State<SplashScreen>
                             ),
                           ),
 
-                        // Main icon with scaling
+                        // Main logo with scaling
                         ScaleTransition(
                           scale: _scaleAnimation,
                           child: FadeTransition(
@@ -181,10 +196,11 @@ class _SplashScreenState extends State<SplashScreen>
                                   stops: const [0.0, 1.0],
                                 ).createShader(bounds);
                               },
-                              child: const Icon(
-                                Icons.forum_rounded,
-                                size: 80,
-                                color: Colors.white,
+                              blendMode: BlendMode.srcIn,
+                              child: Image.asset(
+                                'assets/icons/live.png',
+                                width: 140,
+                                height: 140,
                               ),
                             ),
                           ),
@@ -194,30 +210,7 @@ class _SplashScreenState extends State<SplashScreen>
 
                     const SizedBox(height: 30),
 
-                    // App title with improved typography
-                    FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: Text(
-                        'L I V E',
-                        style: TextStyle(
-                          fontSize: 36,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          letterSpacing: 2.5,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 10,
-                              offset: const Offset(2, 2),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    // Subtitle with slide animation
+                    // Subtitle
                     SlideTransition(
                       position: _slideAnimation,
                       child: Text(
@@ -238,7 +231,7 @@ class _SplashScreenState extends State<SplashScreen>
 
                     const SizedBox(height: 40),
 
-                    // Pulsing dots loader with improved timing
+                    // Pulsing dots loader
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [

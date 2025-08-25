@@ -68,27 +68,16 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
             leading ??
             Padding(
               padding: const EdgeInsets.only(left: 12),
-              child: ShaderMask(
-                shaderCallback: (Rect bounds) {
-                  return RadialGradient(
-                    colors: [
-                      Colors.purpleAccent.withOpacity(0.9),
-                      Colors.purple.withOpacity(0.6),
-                      Colors.transparent,
-                    ],
-                    stops: const [0.4, 0.7, 1.0],
-                    center: Alignment.center,
-                    radius: 1,
-                  ).createShader(bounds);
-                },
+              child: Container(
                 child: Image.asset(
                   "assets/icons/live.png",
                   height: 28,
                   width: 28,
-                  color: Colors.white,
+                  color: theme.colorScheme.primary,
                 ),
               ),
             ),
+
         title:
             title != null
                 ? DefaultTextStyle(
@@ -123,8 +112,12 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   Widget _buildDropdownMenu(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return PopupMenuButton<String>(
+      elevation: 8,
+      color: isDark ? Colors.grey[900] : Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       icon: Icon(
         Icons.more_vert,
         color:
@@ -144,17 +137,22 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               value: 'dark_mode',
               child: Row(
                 children: [
-                  Icon(
-                    theme.brightness == Brightness.dark
-                        ? Icons.light_mode
-                        : Icons.dark_mode,
-                    color: theme.colorScheme.primary,
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isDark ? Icons.light_mode : Icons.dark_mode,
+                      color: theme.colorScheme.primary,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    theme.brightness == Brightness.dark
-                        ? 'Light Mode'
-                        : 'Dark Mode',
+                    isDark ? 'Light Mode' : 'Dark Mode',
+                    style: theme.textTheme.bodyMedium,
                   ),
                 ],
               ),
@@ -164,11 +162,25 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               value: 'sign_out',
               child: Row(
                 children: [
-                  Icon(Icons.exit_to_app, color: theme.colorScheme.error),
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.error.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.exit_to_app,
+                      color: theme.colorScheme.error,
+                      size: 20,
+                    ),
+                  ),
                   const SizedBox(width: 12),
                   Text(
                     'Sign Out',
-                    style: TextStyle(color: theme.colorScheme.error),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.error,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),

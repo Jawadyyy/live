@@ -83,7 +83,7 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
                 _buildTab(
                   context,
                   label: 'Home',
-                  iconPath: 'icons/home.png',
+                  iconPath: 'assets/icons/home.png',
                   isActive: _selectedIndex == 0,
                   activeColor: activeColor,
                   inactiveColor: inactiveColor,
@@ -92,7 +92,7 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
                 _buildTab(
                   context,
                   label: 'Chat',
-                  iconPath: 'icons/message.png',
+                  iconPath: 'assets/icons/message.png',
                   isActive: _selectedIndex == 1,
                   activeColor: activeColor,
                   inactiveColor: inactiveColor,
@@ -101,7 +101,7 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
                 _buildTab(
                   context,
                   label: 'Stream',
-                  iconPath: 'icons/tv.png',
+                  iconPath: 'assets/icons/tv.png',
                   isActive: _selectedIndex == 2,
                   activeColor: activeColor,
                   inactiveColor: inactiveColor,
@@ -110,7 +110,7 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
                 _buildTab(
                   context,
                   label: 'Profile',
-                  iconPath: 'icons/user.png',
+                  iconPath: 'assets/icons/user.png',
                   isActive: _selectedIndex == 3,
                   activeColor: activeColor,
                   inactiveColor: inactiveColor,

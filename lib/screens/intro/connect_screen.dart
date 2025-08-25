@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:live/auth/auth_gate.dart';
 import 'package:live/components/primary_button.dart';
-import 'package:live/screens/auth/auth_screen.dart';
 
 class ConnectScreen extends StatelessWidget {
   final VoidCallback? onContinuePressed;
@@ -101,7 +101,7 @@ class ConnectScreen extends StatelessWidget {
                               ),
                               child: ClipOval(
                                 child: Image.asset(
-                                  'images/connect.png',
+                                  'assets/images/connect.png',
                                   fit: BoxFit.cover,
                                   errorBuilder:
                                       (context, error, stackTrace) => Icon(
@@ -206,10 +206,10 @@ class ConnectScreen extends StatelessWidget {
                           child: MainButton(
                             text: 'Next',
                             onPressed: () {
-                              Navigator.push(
+                              Navigator.pushReplacement(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => const AuthScreen(),
+                                  builder: (context) => const AuthGate(),
                                 ),
                               );
                             },

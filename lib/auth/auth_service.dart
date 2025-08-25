@@ -4,7 +4,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthService {
   final SupabaseClient _supabase = Supabase.instance.client;
-  final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
 
   Future<AuthResponse> signUpWithEmailPassword(
     String email,
@@ -87,11 +86,32 @@ class AuthService {
         throw Exception("Missing tokens");
       }
 
-      await Supabase.instance.client.auth.signInWithIdToken(
+      final response = await Supabase.instance.client.auth.signInWithIdToken(
         provider: OAuthProvider.google,
         idToken: idToken,
         accessToken: accessToken,
       );
+
+      // Check if this is a new user and create profile entry if needed
+      final user = response.user;
+      if (user != null) {
+        final existingProfile =
+            await _supabase
+                .from('users')
+                .select()
+                .eq('id', user.id)
+                .maybeSingle();
+
+        if (existingProfile == null) {
+          // New user - create profile entry with is_profile_complete = false
+          await _supabase.from('users').insert({
+            'id': user.id,
+            'email': user.email ?? '',
+            'phone_number': '',
+            'is_profile_complete': false,
+          });
+        }
+      }
 
       return true;
     } catch (e) {

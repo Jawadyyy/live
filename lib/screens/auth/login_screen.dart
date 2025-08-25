@@ -247,12 +247,27 @@ class _LoginScreenState extends State<LoginScreen> {
                         final success = await authService.signInWithGoogle();
 
                         if (success && context.mounted) {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const CustomBottomNavBar(),
-                            ),
-                          );
+                          // Check if user profile is complete
+                          final profile = await authService.fetchUserProfile();
+
+                          if (profile != null &&
+                              profile['is_profile_complete'] == false) {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (context) => const ProfileSetupScreen(),
+                              ),
+                            );
+                          } else {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (context) => const CustomBottomNavBar(),
+                              ),
+                            );
+                          }
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
@@ -270,7 +285,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         backgroundColor: Colors.white,
                       ),
                       icon: Image.asset(
-                        'icons/google.png', // Update path if needed
+                        'assets/icons/google.png',
                         width: 24,
                         errorBuilder:
                             (context, error, stackTrace) =>

@@ -49,7 +49,7 @@ class _AuthScreenState extends State<AuthScreen>
     final textColor = theme.textTheme.displayLarge?.color ?? Colors.black;
     final secondaryTextColor =
         isDark ? Colors.white.withOpacity(0.8) : Colors.black.withOpacity(0.7);
-    const purpleColor = Color(0xFF7C56E1); // Purple color for login text
+    const purpleColor = Color(0xFF7C56E1);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -81,10 +81,11 @@ class _AuthScreenState extends State<AuthScreen>
                                   : primaryColor.withOpacity(0.1),
                         ),
                         padding: const EdgeInsets.all(20),
-                        child: Icon(
-                          Icons.forum_rounded,
+                        child: Image.asset(
+                          'assets/icons/live.png',
+                          width: isSmallScreen ? 70 : 100,
+                          height: isSmallScreen ? 70 : 100,
                           color: primaryColor,
-                          size: isSmallScreen ? 60 : 80,
                         ),
                       ),
                       SizedBox(height: isSmallScreen ? 32 : 48),

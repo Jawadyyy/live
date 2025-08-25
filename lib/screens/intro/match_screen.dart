@@ -101,7 +101,7 @@ class MatchScreen extends StatelessWidget {
                               ),
                               child: ClipOval(
                                 child: Image.asset(
-                                  'images/chatting.png',
+                                  'assets/images/chatting.png',
                                   fit: BoxFit.cover,
                                   errorBuilder:
                                       (context, error, stackTrace) => Icon(
