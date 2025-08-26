@@ -179,6 +179,111 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                   const SizedBox(height: 20),
 
+                  // Theme Change Section
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.palette,
+                                color: colorScheme.primary,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Theme',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Consumer<ThemeProvider>(
+                            builder: (context, themeProvider, child) {
+                              String currentTheme = 'System';
+                              if (themeProvider.themeMode == ThemeMode.light) {
+                                currentTheme = 'Light';
+                              } else if (themeProvider.themeMode ==
+                                  ThemeMode.dark) {
+                                currentTheme = 'Dark';
+                              }
+                              return Text(
+                                'Current: $currentTheme',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: colorScheme.onSurface.withOpacity(0.7),
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          Consumer<ThemeProvider>(
+                            builder: (context, themeProvider, child) {
+                              return Column(
+                                children: [
+                                  RadioListTile<ThemeMode>(
+                                    title: const Text('Light'),
+                                    value: ThemeMode.light,
+                                    groupValue: themeProvider.themeMode,
+                                    onChanged: (ThemeMode? value) async {
+                                      if (value != null) {
+                                        await themeProvider.setThemeMode(value);
+                                      }
+                                    },
+                                    activeColor: colorScheme.primary,
+                                  ),
+                                  Divider(
+                                    height: 1,
+                                    color: colorScheme.outline.withOpacity(0.3),
+                                  ),
+                                  RadioListTile<ThemeMode>(
+                                    title: const Text('Dark'),
+                                    value: ThemeMode.dark,
+                                    groupValue: themeProvider.themeMode,
+                                    onChanged: (ThemeMode? value) async {
+                                      if (value != null) {
+                                        await themeProvider.setThemeMode(value);
+                                      }
+                                    },
+                                    activeColor: colorScheme.primary,
+                                  ),
+                                  Divider(
+                                    height: 1,
+                                    color: colorScheme.outline.withOpacity(0.3),
+                                  ),
+                                  RadioListTile<ThemeMode>(
+                                    title: const Text('System'),
+                                    value: ThemeMode.system,
+                                    groupValue: themeProvider.themeMode,
+                                    onChanged: (ThemeMode? value) async {
+                                      if (value != null) {
+                                        await themeProvider.setThemeMode(value);
+                                      }
+                                    },
+                                    activeColor: colorScheme.primary,
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
                   // Logout Button
                   ElevatedButton.icon(
                     onPressed: logout,

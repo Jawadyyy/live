@@ -15,6 +15,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final BorderRadius? borderRadius;
   final VoidCallback? onToggleDarkMode;
   final VoidCallback? onSignOut;
+  final VoidCallback? onNotificationTap;
 
   const CustomAppBar({
     super.key,
@@ -31,6 +32,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.borderRadius,
     this.onToggleDarkMode,
     this.onSignOut,
+    this.onNotificationTap,
   });
 
   @override
@@ -40,8 +42,17 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     final systemUiOverlayStyle =
         isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark;
 
-    // Combine provided actions with the dropdown menu
-    final combinedActions = [...?actions, _buildDropdownMenu(context)];
+    // Combine provided actions with a notification icon
+    final combinedActions = [
+      ...?actions,
+      IconButton(
+        icon: Icon(
+          Icons.notifications_outlined,
+          color: theme.colorScheme.primary,
+        ),
+        onPressed: onNotificationTap ?? () {},
+      ),
+    ];
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -68,16 +79,13 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
             leading ??
             Padding(
               padding: const EdgeInsets.only(left: 12),
-              child: Container(
-                child: Image.asset(
-                  "assets/icons/live.png",
-                  height: 28,
-                  width: 28,
-                  color: theme.colorScheme.primary,
-                ),
+              child: Image.asset(
+                "assets/icons/live.png",
+                height: 28,
+                width: 28,
+                color: theme.colorScheme.primary,
               ),
             ),
-
         title:
             title != null
                 ? DefaultTextStyle(
@@ -107,85 +115,6 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 ? RoundedRectangleBorder(borderRadius: borderRadius!)
                 : null,
       ),
-    );
-  }
-
-  Widget _buildDropdownMenu(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return PopupMenuButton<String>(
-      elevation: 8,
-      color: isDark ? Colors.grey[900] : Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      icon: Icon(
-        Icons.more_vert,
-        color:
-            theme.appBarTheme.actionsIconTheme?.color ??
-            theme.colorScheme.primary,
-      ),
-      onSelected: (String value) {
-        if (value == 'dark_mode' && onToggleDarkMode != null) {
-          onToggleDarkMode!();
-        } else if (value == 'sign_out' && onSignOut != null) {
-          onSignOut!();
-        }
-      },
-      itemBuilder:
-          (BuildContext context) => <PopupMenuEntry<String>>[
-            PopupMenuItem<String>(
-              value: 'dark_mode',
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      isDark ? Icons.light_mode : Icons.dark_mode,
-                      color: theme.colorScheme.primary,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    isDark ? 'Light Mode' : 'Dark Mode',
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ],
-              ),
-            ),
-            const PopupMenuDivider(),
-            PopupMenuItem<String>(
-              value: 'sign_out',
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.error.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.exit_to_app,
-                      color: theme.colorScheme.error,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Sign Out',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.error,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
     );
   }
 

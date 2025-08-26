@@ -173,6 +173,38 @@ class ThemeProvider with ChangeNotifier {
     }
   }
 
+  // Set specific theme mode
+  Future<void> setThemeMode(ThemeMode mode, {TickerProvider? vsync}) async {
+    if (mode == _themeMode) return;
+
+    // If we have a vsync provider, animate the transition
+    if (vsync != null) {
+      _animationController?.dispose();
+      _animationController = AnimationController(
+        vsync: vsync,
+        duration: const Duration(milliseconds: 500),
+      );
+
+      _animation = CurvedAnimation(
+        parent: _animationController!,
+        curve: Curves.easeInOut,
+      );
+
+      // Start the animation
+      await _animationController!.forward(from: 0);
+    }
+
+    _themeMode = mode;
+    notifyListeners();
+
+    // Clean up after animation
+    if (_animationController != null) {
+      await _animationController!.forward();
+      _animationController?.dispose();
+      _animationController = null;
+    }
+  }
+
   bool get isDarkMode {
     if (_themeMode == ThemeMode.system) {
       final brightness = WidgetsBinding.instance.window.platformBrightness;

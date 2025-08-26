@@ -3,6 +3,8 @@ import 'package:live/auth/auth_service.dart';
 import 'package:live/components/appbar.dart';
 import 'package:live/screens/auth/login_screen.dart';
 import 'package:live/screens/theme/theme_provider.dart';
+import 'package:live/components/chat_fab.dart';
+import 'package:live/screens/main/chat_screen/search_screen/search_screen.dart';
 import 'package:provider/provider.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -41,7 +43,10 @@ class _ChatScreenState extends State<ChatScreen> {
         },
         onSignOut: logout,
       ),
-      body: Center(child: Text("Chat")),
+      body: const Center(child: Text("Chat")),
+      floatingActionButton: const ChatFab(
+        searchScreen: SearchScreen(), // navigate to SearchScreen
+      ),
     );
   }
 }
