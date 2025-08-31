@@ -298,108 +298,94 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   children: [
                     // Profile Header
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surface,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          // Avatar
-                          Stack(
-                            children: [
-                              Container(
-                                width: 100,
-                                height: 100,
+                    Column(
+                      children: [
+                        // Avatar
+                        Stack(
+                          children: [
+                            Container(
+                              width: 100,
+                              height: 100,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: colorScheme.primary.withOpacity(0.2),
+                                  width: 3,
+                                ),
+                              ),
+                              child: ClipOval(
+                                child:
+                                    _userData!['avatar_url'] != null
+                                        ? Image.network(
+                                          _userData!['avatar_url'],
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (
+                                            context,
+                                            error,
+                                            stackTrace,
+                                          ) {
+                                            return Icon(
+                                              Icons.person,
+                                              size: 60,
+                                              color: colorScheme.onSurface
+                                                  .withOpacity(0.5),
+                                            );
+                                          },
+                                        )
+                                        : Icon(
+                                          Icons.person,
+                                          size: 60,
+                                          color: colorScheme.onSurface
+                                              .withOpacity(0.5),
+                                        ),
+                              ),
+                            ),
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
+                                  color: colorScheme.primary,
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: colorScheme.primary.withOpacity(0.2),
-                                    width: 3,
+                                    color: colorScheme.surface,
+                                    width: 2,
                                   ),
                                 ),
-                                child: ClipOval(
-                                  child:
-                                      _userData!['avatar_url'] != null
-                                          ? Image.network(
-                                            _userData!['avatar_url'],
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (
-                                              context,
-                                              error,
-                                              stackTrace,
-                                            ) {
-                                              return Icon(
-                                                Icons.person,
-                                                size: 60,
-                                                color: colorScheme.onSurface
-                                                    .withOpacity(0.5),
-                                              );
-                                            },
-                                          )
-                                          : Icon(
-                                            Icons.person,
-                                            size: 60,
-                                            color: colorScheme.onSurface
-                                                .withOpacity(0.5),
-                                          ),
+                                child: const Icon(
+                                  Icons.edit,
+                                  color: Colors.white,
+                                  size: 14,
                                 ),
                               ),
-                              Positioned(
-                                bottom: 0,
-                                right: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.primary,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: colorScheme.surface,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: const Icon(
-                                    Icons.edit,
-                                    color: Colors.white,
-                                    size: 14,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
 
-                          // Username
+                        // Username
+                        Text(
+                          _userData!['username'] ?? 'Unknown',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Bio
+                        if ((_userData!['bio'] ?? '').isNotEmpty)
                           Text(
-                            _userData!['username'] ?? 'Unknown',
+                            _userData!['bio'],
+                            textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.onSurface,
+                              fontSize: 14,
+                              color: colorScheme.onSurface.withOpacity(0.7),
                             ),
                           ),
-                          const SizedBox(height: 8),
-
-                          // Bio
-                          if ((_userData!['bio'] ?? '').isNotEmpty)
-                            Text(
-                              _userData!['bio'],
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: colorScheme.onSurface.withOpacity(0.7),
-                              ),
-                            ),
-                        ],
-                      ),
+                      ],
                     ),
 
                     const SizedBox(height: 24),
