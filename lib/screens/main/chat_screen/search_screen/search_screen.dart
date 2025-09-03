@@ -10,13 +10,12 @@ class SearchScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     return ChangeNotifierProvider(
-      create: (_) => FriendSearchController(), // ✅ use FriendSearchController
+      create: (_) => FriendSearchController(),
       child: Scaffold(
         appBar: AppBar(title: const Text("Search"), centerTitle: true),
         body: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Consumer<FriendSearchController>(
-            // ✅ consume FriendSearchController
             builder: (context, controller, _) {
               return Column(
                 children: [
@@ -62,9 +61,23 @@ class SearchScreen extends StatelessWidget {
                             ),
                             title: Text(user['username']),
                             subtitle: Text(user['bio'] ?? ""),
-                            onTap: () {
-                              // 👉 Next step: show profile or "Send Friend Request"
-                            },
+                            trailing: IconButton(
+                              icon: Icon(
+                                Icons.person_add_outlined,
+                                color: theme.colorScheme.primary,
+                              ),
+                              onPressed: () {
+                                controller.sendFriendRequest(user['id']);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      "Friend request sent to ${user['username']}",
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            onTap: () {},
                           );
                         },
                       ),

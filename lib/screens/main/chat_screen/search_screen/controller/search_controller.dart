@@ -42,6 +42,23 @@ class FriendSearchController extends ChangeNotifier {
     }
   }
 
+  Future<void> sendFriendRequest(String addresseeId) async {
+    final currentUserId = supabase.auth.currentUser?.id;
+    if (currentUserId == null) return;
+
+    try {
+      await supabase.from('friendships').insert({
+        'requester_id': currentUserId,
+        'addressee_id': addresseeId,
+        'status': 'pending',
+      });
+
+      debugPrint("✅ Friend request sent to $addresseeId");
+    } catch (e) {
+      debugPrint("❌ Error sending friend request: $e");
+    }
+  }
+
   @override
   void dispose() {
     textController.dispose();

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:live/screens/main/notification_screen/notification_screen.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final Widget? title;
@@ -14,7 +15,6 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final Gradient? gradient;
   final BorderRadius? borderRadius;
   final VoidCallback? onToggleDarkMode;
-  final VoidCallback? onSignOut;
   final VoidCallback? onNotificationTap;
 
   const CustomAppBar({
@@ -31,7 +31,6 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.gradient,
     this.borderRadius,
     this.onToggleDarkMode,
-    this.onSignOut,
     this.onNotificationTap,
   });
 
@@ -42,7 +41,6 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     final systemUiOverlayStyle =
         isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark;
 
-    // Combine provided actions with a notification icon
     final combinedActions = [
       ...?actions,
       IconButton(
@@ -50,7 +48,16 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           Icons.notifications_outlined,
           color: theme.colorScheme.primary,
         ),
-        onPressed: onNotificationTap ?? () {},
+        onPressed:
+            onNotificationTap ??
+            () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const NotificationScreen(),
+                ),
+              );
+            },
       ),
     ];
 

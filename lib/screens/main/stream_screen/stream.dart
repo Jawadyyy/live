@@ -15,14 +15,6 @@ class StreamScreen extends StatefulWidget {
 class _StreamScreenState extends State<StreamScreen> {
   final authService = AuthService();
 
-  void logout() async {
-    await authService.signOut();
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -39,7 +31,6 @@ class _StreamScreenState extends State<StreamScreen> {
           );
           await themeProvider.toggleTheme(!themeProvider.isDarkMode);
         },
-        onSignOut: logout,
       ),
       body: Center(child: Text("Stream")),
     );

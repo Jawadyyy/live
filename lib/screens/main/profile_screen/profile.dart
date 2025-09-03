@@ -286,7 +286,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           );
           await themeProvider.toggleTheme(!themeProvider.isDarkMode);
         },
-        onSignOut: logout,
       ),
       body:
           _isLoading

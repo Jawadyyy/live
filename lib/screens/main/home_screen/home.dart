@@ -15,14 +15,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final authService = AuthService();
 
-  void logout() async {
-    await authService.signOut();
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -39,7 +31,6 @@ class _HomeScreenState extends State<HomeScreen> {
           );
           await themeProvider.toggleTheme(!themeProvider.isDarkMode);
         },
-        onSignOut: logout,
       ),
       body: Center(child: Text("Home")),
     );

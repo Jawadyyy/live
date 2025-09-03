@@ -17,14 +17,6 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final authService = AuthService();
 
-  void logout() async {
-    await authService.signOut();
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -41,12 +33,9 @@ class _ChatScreenState extends State<ChatScreen> {
           );
           await themeProvider.toggleTheme(!themeProvider.isDarkMode);
         },
-        onSignOut: logout,
       ),
       body: const Center(child: Text("Chat")),
-      floatingActionButton: const ChatFab(
-        searchScreen: SearchScreen(), // navigate to SearchScreen
-      ),
+      floatingActionButton: const ChatFab(searchScreen: SearchScreen()),
     );
   }
 }
