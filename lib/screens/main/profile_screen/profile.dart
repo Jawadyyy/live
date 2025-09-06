@@ -19,6 +19,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final authService = AuthService();
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
+  int _friendsCount = 0; // 🔹 New variable
 
   @override
   void initState() {
@@ -40,6 +41,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (user == null) return;
 
     try {
+      // Fetch user profile
       final response =
           await _supabase
               .from('users')
@@ -49,11 +51,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
               .eq('id', user.id)
               .maybeSingle();
 
-      print('Fetched user data: $response');
+      // 🔹 Count friends
+      final res = await _supabase
+          .from('friendships')
+          .select('id') // selecting at least one column
+          .or('requester_id.eq.${user.id},addressee_id.eq.${user.id}')
+          .eq('status', 'accepted')
+          .count(
+            CountOption.exact,
+          ); // CountOption is available from supabase_flutter
+
+      final totalFriends = res.count ?? 0;
 
       if (!mounted) return;
       setState(() {
         _userData = response;
+        _friendsCount = totalFriends;
         _isLoading = false;
       });
     } catch (e) {
@@ -61,6 +74,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         _isLoading = false;
         _userData = null;
+        _friendsCount = 0;
       });
       debugPrint('Error fetching user data: $e');
     }
@@ -390,6 +404,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 24),
 
                     // Info List
+                    _infoTile(
+                      'Total Friends',
+                      _friendsCount.toString(),
+                      Icons.group,
+                    ),
                     _infoTile('Email', _userData!['email'] ?? '', Icons.email),
                     _infoTile(
                       'Phone',
