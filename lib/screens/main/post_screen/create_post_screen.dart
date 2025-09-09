@@ -1,18 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:live/screens/main/post_screen/controller/create_post_controller.dart';
+import 'package:provider/provider.dart';
 
-class CreatePostScreen extends StatefulWidget {
+class CreatePostScreen extends StatelessWidget {
   const CreatePostScreen({super.key});
 
   @override
-  State<CreatePostScreen> createState() => _CreatePostScreenState();
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => CreatePostController(),
+      child: const _CreatePostView(),
+    );
+  }
 }
 
-class _CreatePostScreenState extends State<CreatePostScreen> {
-  final TextEditingController _textController = TextEditingController();
-  String? _selectedImage; // placeholder for demo
+class _CreatePostView extends StatelessWidget {
+  const _CreatePostView();
 
   @override
   Widget build(BuildContext context) {
+    final controller = Provider.of<CreatePostController>(context);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -35,7 +42,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: TextField(
-                  controller: _textController,
+                  controller: controller.textController,
                   maxLines: 5,
                   style: theme.textTheme.bodyLarge,
                   decoration: const InputDecoration(
@@ -49,26 +56,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
             // Image Preview / Picker
             GestureDetector(
-              onTap: () {
-                // TODO: open image picker
-                setState(() {
-                  _selectedImage = "dummy_path"; // placeholder
-                });
-              },
+              onTap: controller.pickImage,
               child:
-                  _selectedImage == null
-                      ? DottedBorderContainer()
+                  controller.selectedImage == null
+                      ? const DottedBorderContainer()
                       : ClipRRect(
                         borderRadius: BorderRadius.circular(16),
-                        child: Container(
+                        child: Image.file(
+                          controller.selectedImage!,
                           height: 200,
-                          color: Colors.grey.shade300,
-                          child: Center(
-                            child: Text(
-                              "Image preview here",
-                              style: theme.textTheme.bodyMedium,
-                            ),
-                          ),
+                          width: double.infinity,
+                          fit: BoxFit.cover,
                         ),
                       ),
             ),
@@ -87,16 +85,27 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
-            onPressed: () {
-              final text = _textController.text.trim();
-              if (text.isNotEmpty || _selectedImage != null) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(const SnackBar(content: Text("Post created!")));
-              }
-            },
-            icon: const Icon(Icons.send, size: 22),
+            onPressed:
+                controller.isPosting
+                    ? null
+                    : () async {
+                      final error = await controller.createPost();
+                      if (error == null) {
+                        Navigator.pop(context);
+                      } else {
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text(error)));
+                      }
+                    },
+            icon:
+                controller.isPosting
+                    ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : const Icon(Icons.send, size: 22),
             label: const Text(
               "Post",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
