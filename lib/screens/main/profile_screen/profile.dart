@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:live/auth/auth_service.dart';
 import 'package:live/components/appbar.dart';
 import 'package:live/screens/intro/splash_screen.dart';
@@ -17,9 +20,13 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final _supabase = Supabase.instance.client;
   final authService = AuthService();
+  final ImagePicker _picker = ImagePicker();
+
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
-  int _friendsCount = 0; // 🔹 New variable
+  bool _isUploading = false;
+  XFile? _pickedImage; // local selected image for immediate preview
+  int _friendsCount = 0;
 
   @override
   void initState() {
@@ -51,15 +58,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               .eq('id', user.id)
               .maybeSingle();
 
-      // 🔹 Count friends
+      // Count friends (accepted)
       final res = await _supabase
           .from('friendships')
-          .select('id') // selecting at least one column
+          .select('id')
           .or('requester_id.eq.${user.id},addressee_id.eq.${user.id}')
           .eq('status', 'accepted')
-          .count(
-            CountOption.exact,
-          ); // CountOption is available from supabase_flutter
+          .count(CountOption.exact);
 
       final totalFriends = res.count ?? 0;
 
@@ -284,6 +289,90 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Future<void> _pickAndUploadImage() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return;
+
+    try {
+      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      if (image == null) return;
+
+      // immediate local preview
+      setState(() {
+        _pickedImage = image;
+        _isUploading = true;
+      });
+
+      // Prepare file data
+      final fileExtension = image.path.split('.').last;
+      final fileName = '${user.id}_profile.$fileExtension';
+      final fileBytes = await image.readAsBytes();
+
+      // Attempt updateBinary, fallback to uploadBinary if not existing
+      try {
+        await _supabase.storage
+            .from('profile-pictures')
+            .uploadBinary(
+              fileName,
+              fileBytes,
+              fileOptions: const FileOptions(upsert: true),
+            );
+      } on StorageException catch (e) {
+        if (e.statusCode == 404) {
+          // Bucket or file not found -> try upload
+          await _supabase.storage
+              .from('profile-pictures')
+              .uploadBinary(
+                fileName,
+                fileBytes,
+                fileOptions: const FileOptions(upsert: true),
+              );
+        } else {
+          rethrow;
+        }
+      }
+
+      // Get public URL
+      final imageUrl = _supabase.storage
+          .from('profile-pictures')
+          .getPublicUrl(fileName);
+
+      // Update users table
+      await _supabase
+          .from('users')
+          .update({'avatar_url': imageUrl})
+          .eq('id', user.id);
+
+      if (mounted) {
+        setState(() {
+          _userData?['avatar_url'] = imageUrl;
+          _pickedImage =
+              null; // clear local preview because we use public url now
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile picture updated!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _pickedImage = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error uploading image: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploading = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -313,7 +402,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     // Profile Header
                     Column(
                       children: [
-                        // Avatar
+                        // Avatar + edit
                         Stack(
                           children: [
                             Container(
@@ -328,53 +417,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                               child: ClipOval(
                                 child:
-                                    _userData!['avatar_url'] != null
-                                        ? Image.network(
-                                          _userData!['avatar_url'],
+                                    _pickedImage != null
+                                        ? Image.file(
+                                          File(_pickedImage!.path),
                                           fit: BoxFit.cover,
-                                          errorBuilder: (
-                                            context,
-                                            error,
-                                            stackTrace,
-                                          ) {
-                                            return Icon(
+                                        )
+                                        : (_userData!['avatar_url'] != null &&
+                                                (_userData!['avatar_url']
+                                                        as String)
+                                                    .isNotEmpty
+                                            ? Image.network(
+                                              _userData!['avatar_url'],
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (
+                                                context,
+                                                error,
+                                                stackTrace,
+                                              ) {
+                                                return Icon(
+                                                  Icons.person,
+                                                  size: 60,
+                                                  color: colorScheme.onSurface
+                                                      .withOpacity(0.5),
+                                                );
+                                              },
+                                            )
+                                            : Icon(
                                               Icons.person,
                                               size: 60,
                                               color: colorScheme.onSurface
                                                   .withOpacity(0.5),
-                                            );
-                                          },
-                                        )
-                                        : Icon(
-                                          Icons.person,
-                                          size: 60,
-                                          color: colorScheme.onSurface
-                                              .withOpacity(0.5),
-                                        ),
+                                            )),
                               ),
                             ),
                             Positioned(
                               bottom: 0,
                               right: 0,
-                              child: Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: colorScheme.primary,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: colorScheme.surface,
-                                    width: 2,
+                              child: GestureDetector(
+                                onTap:
+                                    _isUploading ? null : _pickAndUploadImage,
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: colorScheme.primary,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: colorScheme.surface,
+                                      width: 2,
+                                    ),
                                   ),
-                                ),
-                                child: const Icon(
-                                  Icons.edit,
-                                  color: Colors.white,
-                                  size: 14,
+                                  child:
+                                      _isUploading
+                                          ? const SizedBox(
+                                            width: 14,
+                                            height: 14,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                          : const Icon(
+                                            Icons.edit,
+                                            color: Colors.white,
+                                            size: 14,
+                                          ),
                                 ),
                               ),
                             ),
                           ],
                         ),
+
                         const SizedBox(height: 16),
 
                         // Username
@@ -403,7 +515,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                     const SizedBox(height: 24),
 
-                    // Info List
+                    // Info list
                     _infoTile(
                       'Total Friends',
                       _friendsCount.toString(),
@@ -433,7 +545,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Icons.access_time,
                     ),
 
-                    // Appearance Section
+                    // Appearance / Theme selector
                     GestureDetector(
                       onTap: () => _showThemeDialog(context),
                       child: Container(
@@ -516,7 +628,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                     const SizedBox(height: 24),
 
-                    // Logout Button
+                    // Logout button
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(

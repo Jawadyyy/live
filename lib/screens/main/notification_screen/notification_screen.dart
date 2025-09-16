@@ -12,7 +12,7 @@ class NotificationScreen extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => FriendRequestsController()..fetchRequests(),
       child: Scaffold(
-        appBar: AppBar(title: const Text("Friend Requests"), centerTitle: true),
+        appBar: AppBar(title: const Text("Notifications"), centerTitle: true),
         body: Consumer<FriendRequestsController>(
           builder: (context, controller, _) {
             if (controller.isLoading) {
