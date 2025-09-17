@@ -516,6 +516,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 24),
 
                     // Info list
+                    _infoTile('Edit Profile', "Halo", Icons.edit),
                     _infoTile(
                       'Total Friends',
                       _friendsCount.toString(),
