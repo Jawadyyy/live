@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:live/auth/auth_service.dart';
 import 'package:live/components/appbar.dart';
 import 'package:live/screens/intro/splash_screen.dart';
+import 'package:live/screens/main/profile_screen/edit_profile_screen.dart';
 import 'package:live/screens/theme/theme_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -24,7 +25,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
   bool _isUploading = false;
-  XFile? _pickedImage; // local selected image for immediate preview
+  XFile? _pickedImage;
   int _friendsCount = 0;
 
   @override
@@ -144,12 +145,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          // TODO: Navigate to EditProfileScreen
-          ScaffoldMessenger.of(
+        onTap: () async {
+          final updated = await Navigator.push(
             context,
-          ).showSnackBar(const SnackBar(content: Text("Edit Profile tapped")));
+            MaterialPageRoute(
+              builder: (_) => EditProfileScreen(userData: _userData!),
+            ),
+          );
+          if (updated == true) {
+            _fetchUserData();
+          }
         },
+
         child: ListTile(
           leading: Container(
             padding: const EdgeInsets.all(10),
@@ -343,18 +350,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image == null) return;
 
-      // immediate local preview
       setState(() {
         _pickedImage = image;
         _isUploading = true;
       });
 
-      // Prepare file data
       final fileExtension = image.path.split('.').last;
       final fileName = '${user.id}_profile.$fileExtension';
       final fileBytes = await image.readAsBytes();
 
-      // Attempt updateBinary, fallback to uploadBinary if not existing
       try {
         await _supabase.storage
             .from('profile-pictures')
@@ -365,7 +369,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             );
       } on StorageException catch (e) {
         if (e.statusCode == 404) {
-          // Bucket or file not found -> try upload
           await _supabase.storage
               .from('profile-pictures')
               .uploadBinary(
@@ -377,13 +380,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           rethrow;
         }
       }
-
-      // Get public URL
       final imageUrl = _supabase.storage
           .from('profile-pictures')
           .getPublicUrl(fileName);
 
-      // Update users table
       await _supabase
           .from('users')
           .update({'avatar_url': imageUrl})
@@ -392,8 +392,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (mounted) {
         setState(() {
           _userData?['avatar_url'] = imageUrl;
-          _pickedImage =
-              null; // clear local preview because we use public url now
+          _pickedImage = null;
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -445,10 +444,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   children: [
-                    // Profile Header
                     Column(
                       children: [
-                        // Avatar + edit
                         Stack(
                           children: [
                             Container(
@@ -592,7 +589,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Icons.access_time,
                     ),
 
-                    // Appearance / Theme selector
                     GestureDetector(
                       onTap: () => _showThemeDialog(context),
                       child: Container(
@@ -675,7 +671,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                     const SizedBox(height: 24),
 
-                    // Logout button
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
