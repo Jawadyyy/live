@@ -1,14 +1,16 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:live/screens/main/post_screen/controller/create_post_controller.dart';
 import 'package:provider/provider.dart';
 
 class CreatePostScreen extends StatelessWidget {
-  const CreatePostScreen({super.key});
+  final Map<String, dynamic>? existingPost;
+  const CreatePostScreen({super.key, this.existingPost});
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => CreatePostController(),
+      create: (_) => CreatePostController(existingPost: existingPost),
       child: const _CreatePostView(),
     );
   }
@@ -24,7 +26,9 @@ class _CreatePostView extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Create Post"),
+        title: Text(
+          controller.existingPost != null ? "Edit Post" : "Create Post",
+        ),
         centerTitle: true,
         elevation: 0,
       ),
@@ -58,23 +62,34 @@ class _CreatePostView extends StatelessWidget {
             GestureDetector(
               onTap: controller.pickImage,
               child:
-                  controller.selectedImage == null
-                      ? const DottedBorderContainer()
-                      : ClipRRect(
+                  controller.selectedImage != null
+                      ? ClipRRect(
                         borderRadius: BorderRadius.circular(16),
                         child: Image.file(
-                          controller.selectedImage!,
+                          File(controller.selectedImage!.path),
                           height: 200,
                           width: double.infinity,
                           fit: BoxFit.cover,
                         ),
-                      ),
+                      )
+                      : (controller.existingPost != null &&
+                          controller.existingPost!['image_url'] != null)
+                      ? ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.network(
+                          controller.existingPost!['image_url'],
+                          height: 200,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                      : const DottedBorderContainer(),
             ),
           ],
         ),
       ),
 
-      // Floating Post Button
+      // Floating Save Button
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -89,7 +104,7 @@ class _CreatePostView extends StatelessWidget {
                 controller.isPosting
                     ? null
                     : () async {
-                      final error = await controller.createPost();
+                      final error = await controller.savePost();
                       if (error == null) {
                         Navigator.pop(context);
                       } else {
@@ -106,9 +121,9 @@ class _CreatePostView extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                     : const Icon(Icons.send, size: 22),
-            label: const Text(
-              "Post",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            label: Text(
+              controller.existingPost != null ? "Update" : "Post",
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
           ),
         ),

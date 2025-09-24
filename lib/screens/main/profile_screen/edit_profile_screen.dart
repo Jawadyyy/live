@@ -90,7 +90,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             'phone_number': _phoneController.text.trim(),
             'bio': _bioController.text.trim(),
             'dob': _dob != null ? _dob!.toIso8601String() : null,
-            'age': calculatedAge, // ✅ also update age
+            'age': calculatedAge,
           })
           .eq('id', user.id);
 

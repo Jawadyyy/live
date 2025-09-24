@@ -10,6 +10,17 @@ class CreatePostController extends ChangeNotifier {
 
   File? selectedImage;
   bool isPosting = false;
+  Map<String, dynamic>? existingPost; // For edit mode
+
+  CreatePostController({this.existingPost}) {
+    if (existingPost != null) {
+      textController.text = existingPost!['content'] ?? '';
+      if (existingPost!['image_url'] != null &&
+          existingPost!['image_url'].toString().isNotEmpty) {
+        // Don’t load network image here, just know that an image exists
+      }
+    }
+  }
 
   /// Pick image from gallery
   Future<void> pickImage() async {
@@ -26,29 +37,29 @@ class CreatePostController extends ChangeNotifier {
         "${DateTime.now().millisecondsSinceEpoch}${path.extension(file.path)}";
     final storagePath = "posts/$userId/$fileName";
 
-    // Upload to "post-images" bucket
+    // Upload with upsert true → allows replacing old file if same path exists
     await Supabase.instance.client.storage
         .from('post-images')
         .upload(
           storagePath,
           file,
-          fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
+          fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
         );
 
-    // Get public URL
     final imageUrl = Supabase.instance.client.storage
         .from('post-images')
         .getPublicUrl(storagePath);
+
     return imageUrl;
   }
 
-  /// Create a new post
-  Future<String?> createPost() async {
+  /// Create or update a post
+  Future<String?> savePost() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return "Not logged in";
 
     final text = textController.text.trim();
-    if (text.isEmpty && selectedImage == null) {
+    if (text.isEmpty && selectedImage == null && existingPost == null) {
       return "Write something or add an image!";
     }
 
@@ -56,19 +67,30 @@ class CreatePostController extends ChangeNotifier {
       isPosting = true;
       notifyListeners();
 
-      String? imageUrl;
+      String? imageUrl = existingPost?['image_url'];
+
       if (selectedImage != null) {
         imageUrl = await _uploadImage(selectedImage!, user.id);
       }
 
-      await Supabase.instance.client.from('posts').insert({
-        'user_id': user.id,
-        'content': text,
-        'image_url': imageUrl,
-      });
+      if (existingPost != null) {
+        // Update post
+        await Supabase.instance.client
+            .from('posts')
+            .update({'content': text, 'image_url': imageUrl})
+            .eq('id', existingPost!['id']);
+      } else {
+        // Create new post
+        await Supabase.instance.client.from('posts').insert({
+          'user_id': user.id,
+          'content': text,
+          'image_url': imageUrl,
+        });
+      }
 
       textController.clear();
       selectedImage = null;
+      existingPost = null;
       isPosting = false;
       notifyListeners();
 

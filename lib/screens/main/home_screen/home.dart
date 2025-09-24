@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:live/components/post_fab.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:live/screens/main/post_screen/create_post_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,10 +18,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final authService = AuthService();
 
-  /// A stream that listens for realtime changes on `posts`
   Stream<List<Map<String, dynamic>>> _postsStream() {
     final client = Supabase.instance.client;
-
     return client
         .from('posts')
         .stream(primaryKey: ['id'])
@@ -33,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDarkMode = themeProvider.isDarkMode;
     final colorScheme = Theme.of(context).colorScheme;
+    final currentUser = Supabase.instance.client.auth.currentUser;
 
     return Scaffold(
       appBar: CustomAppBar(
@@ -59,28 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
           }
           final posts = snapshot.data ?? [];
           if (posts.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.article_outlined,
-                    size: 64,
-                    color: Colors.grey[400],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    "No posts yet",
-                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Be the first to share something!",
-                    style: TextStyle(color: Colors.grey[500]),
-                  ),
-                ],
-              ),
-            );
+            return _emptyState();
           }
 
           return ListView.builder(
@@ -89,7 +68,6 @@ class _HomeScreenState extends State<HomeScreen> {
             itemBuilder: (context, index) {
               final post = posts[index];
 
-              // Fetch user info separately
               return FutureBuilder(
                 future:
                     Supabase.instance.client
@@ -104,6 +82,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   final createdAt = DateTime.tryParse(post['created_at'] ?? '');
                   final timeAgo =
                       createdAt != null ? timeago.format(createdAt) : "";
+                  final isOwner =
+                      currentUser != null && currentUser.id == post['user_id'];
 
                   return Container(
                     margin: const EdgeInsets.only(bottom: 20),
@@ -129,37 +109,22 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // User Info Row
                             Row(
                               children: [
-                                Container(
-                                  width: 46,
-                                  height: 46,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: colorScheme.primary.withOpacity(
-                                        0.2,
-                                      ),
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: CircleAvatar(
-                                    radius: 20,
-                                    backgroundColor: Colors.transparent,
-                                    backgroundImage:
-                                        avatarUrl != null
-                                            ? NetworkImage(avatarUrl)
-                                            : null,
-                                    child:
-                                        avatarUrl == null
-                                            ? Icon(
-                                              Icons.person,
-                                              size: 22,
-                                              color: Colors.grey[600],
-                                            )
-                                            : null,
-                                  ),
+                                CircleAvatar(
+                                  radius: 23,
+                                  backgroundColor: Colors.grey[200],
+                                  backgroundImage:
+                                      avatarUrl != null
+                                          ? NetworkImage(avatarUrl)
+                                          : null,
+                                  child:
+                                      avatarUrl == null
+                                          ? Icon(
+                                            Icons.person,
+                                            color: Colors.grey[600],
+                                          )
+                                          : null,
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
@@ -175,7 +140,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                           fontWeight: FontWeight.w600,
                                           fontSize: 16,
                                         ),
-                                        overflow: TextOverflow.ellipsis,
                                       ),
                                       if (timeAgo.isNotEmpty)
                                         Text(
@@ -190,19 +154,76 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ],
                                   ),
                                 ),
-                                IconButton(
-                                  icon: Icon(
-                                    Icons.more_vert,
-                                    color: Colors.grey[500],
+                                if (isOwner)
+                                  PopupMenuButton<String>(
+                                    onSelected: (value) async {
+                                      if (value == 'edit') {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder:
+                                                (_) => CreatePostScreen(
+                                                  existingPost: post,
+                                                ),
+                                          ),
+                                        );
+                                      } else if (value == 'delete') {
+                                        final confirm = await showDialog<bool>(
+                                          context: context,
+                                          builder:
+                                              (ctx) => AlertDialog(
+                                                title: const Text(
+                                                  "Delete Post",
+                                                ),
+                                                content: const Text(
+                                                  "Are you sure you want to delete this post?",
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed:
+                                                        () => Navigator.pop(
+                                                          ctx,
+                                                          false,
+                                                        ),
+                                                    child: const Text("Cancel"),
+                                                  ),
+                                                  TextButton(
+                                                    onPressed:
+                                                        () => Navigator.pop(
+                                                          ctx,
+                                                          true,
+                                                        ),
+                                                    child: const Text("Delete"),
+                                                  ),
+                                                ],
+                                              ),
+                                        );
+
+                                        if (confirm == true) {
+                                          await Supabase.instance.client
+                                              .from('posts')
+                                              .delete()
+                                              .eq('id', post['id']);
+                                        }
+                                      }
+                                    },
+                                    itemBuilder:
+                                        (context) => const [
+                                          PopupMenuItem(
+                                            value: 'edit',
+                                            child: Text("Edit"),
+                                          ),
+                                          PopupMenuItem(
+                                            value: 'delete',
+                                            child: Text("Delete"),
+                                          ),
+                                        ],
                                   ),
-                                  onPressed: () {},
-                                ),
                               ],
                             ),
 
                             const SizedBox(height: 16),
 
-                            // Post Content
                             if (post['content'] != null &&
                                 post['content'].toString().isNotEmpty)
                               Padding(
@@ -214,58 +235,35 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
 
-                            // Post Image
                             if (post['image_url'] != null)
-                              Container(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.1),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(16),
-                                  child: Image.network(
-                                    post['image_url'],
-                                    fit: BoxFit.cover,
-                                    width: double.infinity,
-                                    loadingBuilder: (context, child, progress) {
-                                      if (progress == null) return child;
-                                      return Container(
-                                        height: 200,
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey[200],
-                                          borderRadius: BorderRadius.circular(
-                                            16,
-                                          ),
-                                        ),
-                                        child: const Center(
-                                          child: CircularProgressIndicator(),
-                                        ),
-                                      );
-                                    },
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Container(
-                                        height: 200,
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey[200],
-                                          borderRadius: BorderRadius.circular(
-                                            16,
-                                          ),
-                                        ),
-                                        child: const Icon(Icons.error),
-                                      );
-                                    },
-                                  ),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: Image.network(
+                                  post['image_url'],
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                  loadingBuilder: (context, child, progress) {
+                                    if (progress == null) return child;
+                                    return Container(
+                                      height: 200,
+                                      color: Colors.grey[200],
+                                      child: const Center(
+                                        child: CircularProgressIndicator(),
+                                      ),
+                                    );
+                                  },
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      height: 200,
+                                      color: Colors.grey[200],
+                                      child: const Icon(Icons.error),
+                                    );
+                                  },
                                 ),
                               ),
 
-                            // Action Row
+                            const SizedBox(height: 12),
+
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceAround,
                               children: [
@@ -299,6 +297,27 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _emptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.article_outlined, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text(
+            "No posts yet",
+            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Be the first to share something!",
+            style: TextStyle(color: Colors.grey[500]),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildActionButton({
     required IconData icon,
     required String label,
@@ -309,10 +328,6 @@ class _HomeScreenState extends State<HomeScreen> {
       onPressed: onPressed,
       icon: Icon(icon, size: 20, color: color),
       label: Text(label, style: TextStyle(color: color, fontSize: 12)),
-      style: TextButton.styleFrom(
-        foregroundColor: Colors.grey,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      ),
     );
   }
 }
