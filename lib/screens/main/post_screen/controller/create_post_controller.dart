@@ -77,7 +77,11 @@ class CreatePostController extends ChangeNotifier {
         // Update post
         await Supabase.instance.client
             .from('posts')
-            .update({'content': text, 'image_url': imageUrl})
+            .update({
+              'content': text,
+              'image_url': imageUrl,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
             .eq('id', existingPost!['id']);
       } else {
         // Create new post
@@ -85,6 +89,7 @@ class CreatePostController extends ChangeNotifier {
           'user_id': user.id,
           'content': text,
           'image_url': imageUrl,
+          'created_at': DateTime.now().toIso8601String(), // ✅ Important
         });
       }
 

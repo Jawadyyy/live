@@ -86,6 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       currentUser != null && currentUser.id == post['user_id'];
 
                   return Container(
+                    key: ValueKey(post['id']), // ✅ ensures rebuilds
                     margin: const EdgeInsets.only(bottom: 20),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(20),
@@ -166,7 +167,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   existingPost: post,
                                                 ),
                                           ),
-                                        );
+                                        ).then((_) {
+                                          if (mounted)
+                                            setState(
+                                              () {},
+                                            ); // ✅ refresh after edit
+                                        });
                                       } else if (value == 'delete') {
                                         final confirm = await showDialog<bool>(
                                           context: context,
@@ -204,6 +210,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                               .from('posts')
                                               .delete()
                                               .eq('id', post['id']);
+
+                                          if (mounted)
+                                            setState(
+                                              () {},
+                                            ); // ✅ refresh after delete
                                         }
                                       }
                                     },
