@@ -56,14 +56,14 @@ class ChatScreen extends StatelessWidget {
                       hintText: "Search friends...",
                       prefixIcon: Icon(
                         Icons.search,
-                        color: Theme.of(context).primaryColor,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                       filled: true,
                       fillColor: Theme.of(context).cardColor,
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(15),
                         borderSide: BorderSide(
-                          color: Theme.of(context).primaryColor,
+                          color: Theme.of(context).colorScheme.primary,
                           width: 2,
                         ),
                       ),
