@@ -4,7 +4,6 @@ import 'package:live/components/appbar.dart';
 import 'package:live/screens/theme/theme_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:live/components/post_fab.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:live/screens/main/post_screen/create_post_screen.dart';
 
@@ -25,6 +24,15 @@ class _HomeScreenState extends State<HomeScreen> {
         .stream(primaryKey: ['id'])
         .order('created_at', ascending: false)
         .map((data) => List<Map<String, dynamic>>.from(data));
+  }
+
+  void _openCreatePost() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const CreatePostScreen()),
+    ).then((_) {
+      if (mounted) setState(() {}); // ✅ Forces rebuild to catch new posts
+    });
   }
 
   @override
@@ -304,7 +312,11 @@ class _HomeScreenState extends State<HomeScreen> {
         },
       ),
 
-      floatingActionButton: const PostFab(),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _openCreatePost,
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        child: const Icon(Icons.add, color: Colors.black),
+      ),
     );
   }
 
