@@ -86,7 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       currentUser != null && currentUser.id == post['user_id'];
 
                   return Container(
-                    key: ValueKey(post['id']), // ✅ ensures rebuilds
+                    key: ValueKey(post['id']),
                     margin: const EdgeInsets.only(bottom: 20),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(20),
