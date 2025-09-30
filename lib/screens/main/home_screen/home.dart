@@ -87,8 +87,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   final user = userSnap.data ?? {};
                   final username = user['username'] ?? "Unknown";
                   final avatarUrl = user['avatar_url'];
-                  final createdAt = DateTime.tryParse(post['created_at'] ?? '');
-                  final updatedAt = DateTime.tryParse(post['updated_at'] ?? '');
+                  final createdAt =
+                      DateTime.tryParse(post['created_at'] ?? '')?.toLocal();
+                  final updatedAt =
+                      DateTime.tryParse(post['updated_at'] ?? '')?.toLocal();
 
                   String timeLabel;
                   if (updatedAt != null &&
