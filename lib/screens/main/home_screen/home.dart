@@ -88,8 +88,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   final username = user['username'] ?? "Unknown";
                   final avatarUrl = user['avatar_url'];
                   final createdAt = DateTime.tryParse(post['created_at'] ?? '');
-                  final timeAgo =
-                      createdAt != null ? timeago.format(createdAt) : "";
+                  final updatedAt = DateTime.tryParse(post['updated_at'] ?? '');
+
+                  String timeLabel;
+                  if (updatedAt != null &&
+                      createdAt != null &&
+                      updatedAt.isAfter(createdAt)) {
+                    timeLabel = "Edited • ${timeago.format(updatedAt)}";
+                  } else {
+                    timeLabel =
+                        createdAt != null ? timeago.format(createdAt) : "";
+                  }
+
                   final isOwner =
                       currentUser != null && currentUser.id == post['user_id'];
 
@@ -150,9 +160,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                           fontSize: 16,
                                         ),
                                       ),
-                                      if (timeAgo.isNotEmpty)
+                                      if (timeLabel.isNotEmpty)
                                         Text(
-                                          timeAgo,
+                                          timeLabel,
                                           style: Theme.of(
                                             context,
                                           ).textTheme.bodySmall?.copyWith(
