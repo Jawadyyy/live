@@ -33,7 +33,7 @@ class _StreamScreenState extends State<StreamScreen> {
           await themeProvider.toggleTheme(!themeProvider.isDarkMode);
         },
       ),
-      body: Center(child: Text("Stream")),
+      body: Center(child: Text("Stream Screen")),
       floatingActionButton: StreamFab(),
     );
   }
