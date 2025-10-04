@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:live/auth/auth_service.dart';
 import 'package:live/components/appbar.dart';
+import 'package:live/screens/main/home_screen/services/comments_screen.dart'
+    show CommentsScreen;
+import 'package:live/screens/main/home_screen/services/post_service.dart';
 import 'package:live/screens/theme/theme_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -16,6 +19,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final authService = AuthService();
+  final _postService = PostService();
 
   Stream<List<Map<String, dynamic>>> _postsStream() {
     final client = Supabase.instance.client;
@@ -31,7 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
       MaterialPageRoute(builder: (_) => const CreatePostScreen()),
     ).then((_) {
-      if (mounted) setState(() {}); // ✅ Forces rebuild to catch new posts
+      if (mounted) setState(() {});
     });
   }
 
@@ -55,7 +59,6 @@ class _HomeScreenState extends State<HomeScreen> {
           await themeProvider.toggleTheme(!themeProvider.isDarkMode);
         },
       ),
-
       body: StreamBuilder<List<Map<String, dynamic>>>(
         stream: _postsStream(),
         builder: (context, snapshot) {
@@ -188,10 +191,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 ),
                                           ),
                                         ).then((_) {
-                                          if (mounted)
-                                            setState(
-                                              () {},
-                                            ); // ✅ refresh after edit
+                                          if (mounted) setState(() {});
                                         });
                                       } else if (value == 'delete') {
                                         final confirm = await showDialog<bool>(
@@ -231,10 +231,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                               .delete()
                                               .eq('id', post['id']);
 
-                                          if (mounted)
-                                            setState(
-                                              () {},
-                                            ); // ✅ refresh after delete
+                                          if (mounted) setState(() {});
                                         }
                                       }
                                     },
@@ -252,7 +249,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                               ],
                             ),
-
                             const SizedBox(height: 16),
 
                             if (post['content'] != null &&
@@ -295,20 +291,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
                             const SizedBox(height: 12),
 
+                            // Like and Comment buttons with real-time counts
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceAround,
                               children: [
-                                _buildActionButton(
-                                  icon: Icons.favorite_outline,
-                                  label: 'Like',
-                                  onPressed: () {},
-                                  color: Colors.grey[600],
+                                _LikeButton(
+                                  postId: post['id'],
+                                  postService: _postService,
                                 ),
-                                _buildActionButton(
-                                  icon: Icons.mode_comment_outlined,
-                                  label: 'Comment',
-                                  onPressed: () {},
-                                  color: Colors.grey[600],
+                                _CommentButton(
+                                  postId: post['id'],
+                                  post: post,
+                                  postService: _postService,
                                 ),
                               ],
                             ),
@@ -323,7 +317,6 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         },
       ),
-
       floatingActionButton: FloatingActionButton(
         onPressed: _openCreatePost,
         backgroundColor: Theme.of(context).colorScheme.primary,
@@ -352,17 +345,98 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+}
 
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onPressed,
-    Color? color,
-  }) {
-    return TextButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 20, color: color),
-      label: Text(label, style: TextStyle(color: color, fontSize: 12)),
+// Like Button Widget with real-time count
+class _LikeButton extends StatelessWidget {
+  final String postId;
+  final PostService postService;
+
+  const _LikeButton({required this.postId, required this.postService});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: postService.isLikedByCurrentUser(postId),
+      builder: (context, likedSnap) {
+        final isLiked = likedSnap.data ?? false;
+
+        return StreamBuilder<int>(
+          stream: postService.likesCountStream(postId),
+          builder: (context, countSnap) {
+            final count = countSnap.data ?? 0;
+
+            return TextButton.icon(
+              onPressed: () async {
+                try {
+                  await postService.toggleLike(postId);
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: ${e.toString()}')),
+                    );
+                  }
+                }
+              },
+              icon: Icon(
+                isLiked ? Icons.favorite : Icons.favorite_outline,
+                size: 20,
+                color: isLiked ? Colors.red : Colors.grey[600],
+              ),
+              label: Text(
+                count > 0 ? count.toString() : 'Like',
+                style: TextStyle(
+                  color: isLiked ? Colors.red : Colors.grey[600],
+                  fontSize: 12,
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+// Comment Button Widget with real-time count
+class _CommentButton extends StatelessWidget {
+  final String postId;
+  final Map<String, dynamic> post;
+  final PostService postService;
+
+  const _CommentButton({
+    required this.postId,
+    required this.post,
+    required this.postService,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<int>(
+      stream: postService.commentsCountStream(postId),
+      builder: (context, countSnap) {
+        final count = countSnap.data ?? 0;
+
+        return TextButton.icon(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => CommentsScreen(postId: postId, post: post),
+              ),
+            );
+          },
+          icon: Icon(
+            Icons.mode_comment_outlined,
+            size: 20,
+            color: Colors.grey[600],
+          ),
+          label: Text(
+            count > 0 ? count.toString() : 'Comment',
+            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+          ),
+        );
+      },
     );
   }
 }
