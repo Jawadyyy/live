@@ -50,18 +50,22 @@ class PostService {
 
   /// Check if current user liked a post
   Future<bool> isLikedByCurrentUser(String postId) async {
-    final userId = _client.auth.currentUser?.id;
-    if (userId == null) return false;
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return false;
 
-    final result =
-        await _client
-            .from('likes')
-            .select('id')
-            .eq('post_id', postId)
-            .eq('user_id', userId)
-            .maybeSingle();
+      final result =
+          await _client
+              .from('likes')
+              .select('id')
+              .eq('post_id', postId)
+              .eq('user_id', userId)
+              .maybeSingle();
 
-    return result != null;
+      return result != null;
+    } catch (e) {
+      return false;
+    }
   }
 
   /// Stream like count for real-time updates

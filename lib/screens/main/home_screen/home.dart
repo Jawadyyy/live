@@ -347,51 +347,153 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// Like Button Widget with real-time count
-class _LikeButton extends StatelessWidget {
+// ==================== UPDATED LIKE BUTTON ====================
+// Stateful Like Button Widget with animation and real-time updates
+class _LikeButton extends StatefulWidget {
   final String postId;
   final PostService postService;
 
   const _LikeButton({required this.postId, required this.postService});
 
   @override
+  State<_LikeButton> createState() => _LikeButtonState();
+}
+
+class _LikeButtonState extends State<_LikeButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+  bool _isLiked = false;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+
+    _scaleAnimation = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(
+          begin: 1.0,
+          end: 1.4,
+        ).chain(CurveTween(curve: Curves.easeOut)),
+        weight: 50,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(
+          begin: 1.4,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.easeIn)),
+        weight: 50,
+      ),
+    ]).animate(_animationController);
+
+    _checkLikeStatus();
+  }
+
+  Future<void> _checkLikeStatus() async {
+    try {
+      final isLiked = await widget.postService.isLikedByCurrentUser(
+        widget.postId,
+      );
+      if (mounted) {
+        setState(() {
+          _isLiked = isLiked;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _handleLike() async {
+    try {
+      // Optimistic UI update
+      setState(() {
+        _isLiked = !_isLiked;
+      });
+
+      // Play animation only when liking
+      if (_isLiked) {
+        _animationController.forward(from: 0);
+      }
+
+      // Actually toggle the like
+      final newLikeState = await widget.postService.toggleLike(widget.postId);
+
+      // Update state based on actual result
+      if (mounted) {
+        setState(() {
+          _isLiked = newLikeState;
+        });
+      }
+    } catch (e) {
+      // Revert on error
+      if (mounted) {
+        setState(() {
+          _isLiked = !_isLiked;
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: postService.isLikedByCurrentUser(postId),
-      builder: (context, likedSnap) {
-        final isLiked = likedSnap.data ?? false;
+    if (_isLoading) {
+      return TextButton.icon(
+        onPressed: null,
+        icon: const SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+        label: Text(
+          'Like',
+          style: TextStyle(color: Colors.grey[600], fontSize: 12),
+        ),
+      );
+    }
 
-        return StreamBuilder<int>(
-          stream: postService.likesCountStream(postId),
-          builder: (context, countSnap) {
-            final count = countSnap.data ?? 0;
+    return StreamBuilder<int>(
+      stream: widget.postService.likesCountStream(widget.postId),
+      builder: (context, countSnap) {
+        final count = countSnap.data ?? 0;
 
-            return TextButton.icon(
-              onPressed: () async {
-                try {
-                  await postService.toggleLike(postId);
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error: ${e.toString()}')),
-                    );
-                  }
-                }
-              },
-              icon: Icon(
-                isLiked ? Icons.favorite : Icons.favorite_outline,
-                size: 20,
-                color: isLiked ? Colors.red : Colors.grey[600],
-              ),
-              label: Text(
-                count > 0 ? count.toString() : 'Like',
-                style: TextStyle(
-                  color: isLiked ? Colors.red : Colors.grey[600],
-                  fontSize: 12,
-                ),
-              ),
-            );
-          },
+        return TextButton.icon(
+          onPressed: _handleLike,
+          icon: ScaleTransition(
+            scale: _scaleAnimation,
+            child: Icon(
+              _isLiked ? Icons.favorite : Icons.favorite_outline,
+              size: 20,
+              color: _isLiked ? Colors.red : Colors.grey[600],
+            ),
+          ),
+          label: Text(
+            count > 0 ? count.toString() : 'Like',
+            style: TextStyle(
+              color: _isLiked ? Colors.red : Colors.grey[600],
+              fontSize: 12,
+              fontWeight: _isLiked ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
         );
       },
     );
