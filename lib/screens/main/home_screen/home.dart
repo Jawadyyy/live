@@ -18,46 +18,55 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final authService = AuthService();
-  final _postService = PostService();
+  late final AuthService _authService;
+  late final PostService _postService;
+  late final SupabaseClient _supabaseClient;
+
+  @override
+  void initState() {
+    super.initState();
+    _authService = AuthService();
+    _postService = PostService();
+    _supabaseClient = Supabase.instance.client;
+  }
 
   Stream<List<Map<String, dynamic>>> _postsStream() {
-    final client = Supabase.instance.client;
-    return client
+    return _supabaseClient
         .from('posts')
         .stream(primaryKey: ['id'])
         .order('created_at', ascending: false)
         .map((data) => List<Map<String, dynamic>>.from(data));
   }
 
-  void _openCreatePost() {
-    Navigator.push(
+  Future<void> _openCreatePost() async {
+    final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (_) => const CreatePostScreen()),
-    ).then((_) {
-      if (mounted) setState(() {});
-    });
+    );
+
+    // Only refresh if post was created/edited
+    if (result == true && mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _toggleTheme() async {
+    final themeProvider = context.read<ThemeProvider>();
+    await themeProvider.toggleTheme(!themeProvider.isDarkMode);
   }
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDarkMode = themeProvider.isDarkMode;
+    final themeProvider = context.watch<ThemeProvider>();
     final colorScheme = Theme.of(context).colorScheme;
-    final currentUser = Supabase.instance.client.auth.currentUser;
+    final currentUser = _supabaseClient.auth.currentUser;
 
     return Scaffold(
       appBar: CustomAppBar(
         title: const Text('Home'),
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
         centerTitle: true,
-        onToggleDarkMode: () async {
-          final themeProvider = Provider.of<ThemeProvider>(
-            context,
-            listen: false,
-          );
-          await themeProvider.toggleTheme(!themeProvider.isDarkMode);
-        },
+        onToggleDarkMode: _toggleTheme,
       ),
       body: StreamBuilder<List<Map<String, dynamic>>>(
         stream: _postsStream(),
@@ -65,12 +74,14 @@ class _HomeScreenState extends State<HomeScreen> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
+
           if (snapshot.hasError) {
-            return Center(child: Text("Error: ${snapshot.error}"));
+            return _ErrorState(error: snapshot.error.toString());
           }
+
           final posts = snapshot.data ?? [];
           if (posts.isEmpty) {
-            return _emptyState();
+            return const _EmptyState();
           }
 
           return ListView.builder(
@@ -78,239 +89,15 @@ class _HomeScreenState extends State<HomeScreen> {
             itemCount: posts.length,
             itemBuilder: (context, index) {
               final post = posts[index];
-
-              return FutureBuilder(
-                future:
-                    Supabase.instance.client
-                        .from('users')
-                        .select('username, avatar_url')
-                        .eq('id', post['user_id'])
-                        .maybeSingle(),
-                builder: (context, userSnap) {
-                  final user = userSnap.data ?? {};
-                  final username = user['username'] ?? "Unknown";
-                  final avatarUrl = user['avatar_url'];
-                  final createdAt =
-                      DateTime.tryParse(post['created_at'] ?? '')?.toLocal();
-                  final updatedAt =
-                      DateTime.tryParse(post['updated_at'] ?? '')?.toLocal();
-
-                  String timeLabel;
-                  if (updatedAt != null &&
-                      createdAt != null &&
-                      updatedAt.isAfter(createdAt)) {
-                    timeLabel = "Edited • ${timeago.format(updatedAt)}";
-                  } else {
-                    timeLabel =
-                        createdAt != null ? timeago.format(createdAt) : "";
-                  }
-
-                  final isOwner =
-                      currentUser != null && currentUser.id == post['user_id'];
-
-                  return Container(
-                    key: ValueKey(post['id']),
-                    margin: const EdgeInsets.only(bottom: 20),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Card(
-                      elevation: 0,
-                      margin: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      color: isDarkMode ? colorScheme.surface : Colors.white,
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 23,
-                                  backgroundColor: Colors.grey[200],
-                                  backgroundImage:
-                                      avatarUrl != null
-                                          ? NetworkImage(avatarUrl)
-                                          : null,
-                                  child:
-                                      avatarUrl == null
-                                          ? Icon(
-                                            Icons.person,
-                                            color: Colors.grey[600],
-                                          )
-                                          : null,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        username,
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.titleMedium?.copyWith(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 16,
-                                        ),
-                                      ),
-                                      if (timeLabel.isNotEmpty)
-                                        Text(
-                                          timeLabel,
-                                          style: Theme.of(
-                                            context,
-                                          ).textTheme.bodySmall?.copyWith(
-                                            color: Colors.grey[500],
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                                if (isOwner)
-                                  PopupMenuButton<String>(
-                                    onSelected: (value) async {
-                                      if (value == 'edit') {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder:
-                                                (_) => CreatePostScreen(
-                                                  existingPost: post,
-                                                ),
-                                          ),
-                                        ).then((_) {
-                                          if (mounted) setState(() {});
-                                        });
-                                      } else if (value == 'delete') {
-                                        final confirm = await showDialog<bool>(
-                                          context: context,
-                                          builder:
-                                              (ctx) => AlertDialog(
-                                                title: const Text(
-                                                  "Delete Post",
-                                                ),
-                                                content: const Text(
-                                                  "Are you sure you want to delete this post?",
-                                                ),
-                                                actions: [
-                                                  TextButton(
-                                                    onPressed:
-                                                        () => Navigator.pop(
-                                                          ctx,
-                                                          false,
-                                                        ),
-                                                    child: const Text("Cancel"),
-                                                  ),
-                                                  TextButton(
-                                                    onPressed:
-                                                        () => Navigator.pop(
-                                                          ctx,
-                                                          true,
-                                                        ),
-                                                    child: const Text("Delete"),
-                                                  ),
-                                                ],
-                                              ),
-                                        );
-
-                                        if (confirm == true) {
-                                          await Supabase.instance.client
-                                              .from('posts')
-                                              .delete()
-                                              .eq('id', post['id']);
-
-                                          if (mounted) setState(() {});
-                                        }
-                                      }
-                                    },
-                                    itemBuilder:
-                                        (context) => const [
-                                          PopupMenuItem(
-                                            value: 'edit',
-                                            child: Text("Edit"),
-                                          ),
-                                          PopupMenuItem(
-                                            value: 'delete',
-                                            child: Text("Delete"),
-                                          ),
-                                        ],
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-
-                            if (post['content'] != null &&
-                                post['content'].toString().isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: Text(
-                                  post['content'],
-                                  style: Theme.of(context).textTheme.bodyLarge
-                                      ?.copyWith(fontSize: 15, height: 1.4),
-                                ),
-                              ),
-
-                            if (post['image_url'] != null)
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(16),
-                                child: Image.network(
-                                  post['image_url'],
-                                  fit: BoxFit.cover,
-                                  width: double.infinity,
-                                  loadingBuilder: (context, child, progress) {
-                                    if (progress == null) return child;
-                                    return Container(
-                                      height: 200,
-                                      color: Colors.grey[200],
-                                      child: const Center(
-                                        child: CircularProgressIndicator(),
-                                      ),
-                                    );
-                                  },
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Container(
-                                      height: 200,
-                                      color: Colors.grey[200],
-                                      child: const Icon(Icons.error),
-                                    );
-                                  },
-                                ),
-                              ),
-
-                            const SizedBox(height: 12),
-
-                            // Like and Comment buttons with real-time counts
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceAround,
-                              children: [
-                                _LikeButton(
-                                  postId: post['id'],
-                                  postService: _postService,
-                                ),
-                                _CommentButton(
-                                  postId: post['id'],
-                                  post: post,
-                                  postService: _postService,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
+              return _PostCard(
+                key: ValueKey(post['id']),
+                post: post,
+                currentUserId: currentUser?.id,
+                isDarkMode: themeProvider.isDarkMode,
+                colorScheme: colorScheme,
+                postService: _postService,
+                onPostUpdated: () {
+                  if (mounted) setState(() {});
                 },
               );
             },
@@ -319,36 +106,321 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _openCreatePost,
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: colorScheme.primary,
         child: const Icon(Icons.add, color: Colors.black),
-      ),
-    );
-  }
-
-  Widget _emptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.article_outlined, size: 64, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          Text(
-            "No posts yet",
-            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "Be the first to share something!",
-            style: TextStyle(color: Colors.grey[500]),
-          ),
-        ],
       ),
     );
   }
 }
 
-// ==================== UPDATED LIKE BUTTON ====================
-// Stateful Like Button Widget with animation and real-time updates
+// ==================== POST CARD WIDGET ====================
+class _PostCard extends StatelessWidget {
+  final Map<String, dynamic> post;
+  final String? currentUserId;
+  final bool isDarkMode;
+  final ColorScheme colorScheme;
+  final PostService postService;
+  final VoidCallback onPostUpdated;
+
+  const _PostCard({
+    super.key,
+    required this.post,
+    required this.currentUserId,
+    required this.isDarkMode,
+    required this.colorScheme,
+    required this.postService,
+    required this.onPostUpdated,
+  });
+
+  bool get isOwner => currentUserId != null && currentUserId == post['user_id'];
+
+  String _getTimeLabel(DateTime? createdAt, DateTime? updatedAt) {
+    if (updatedAt != null &&
+        createdAt != null &&
+        updatedAt.isAfter(createdAt)) {
+      return "Edited • ${timeago.format(updatedAt)}";
+    }
+    return createdAt != null ? timeago.format(createdAt) : "";
+  }
+
+  Future<void> _handleEdit(BuildContext context) async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => CreatePostScreen(existingPost: post)),
+    );
+
+    if (result == true) {
+      onPostUpdated();
+    }
+  }
+
+  Future<void> _handleDelete(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text("Delete Post"),
+            content: const Text("Are you sure you want to delete this post?"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text("Cancel"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text("Delete"),
+              ),
+            ],
+          ),
+    );
+
+    if (confirm == true) {
+      try {
+        await Supabase.instance.client
+            .from('posts')
+            .delete()
+            .eq('id', post['id']);
+        onPostUpdated();
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Failed to delete post: $e')));
+        }
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Map<String, dynamic>?>(
+      future:
+          Supabase.instance.client
+              .from('users')
+              .select('username, avatar_url')
+              .eq('id', post['user_id'])
+              .maybeSingle(),
+      builder: (context, userSnap) {
+        final user = userSnap.data ?? {};
+        final username = user['username'] ?? "Unknown";
+        final avatarUrl = user['avatar_url'];
+        final createdAt =
+            DateTime.tryParse(post['created_at'] ?? '')?.toLocal();
+        final updatedAt =
+            DateTime.tryParse(post['updated_at'] ?? '')?.toLocal();
+        final timeLabel = _getTimeLabel(createdAt, updatedAt);
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 20),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Card(
+            elevation: 0,
+            margin: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            color: isDarkMode ? colorScheme.surface : Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _PostHeader(
+                    username: username,
+                    avatarUrl: avatarUrl,
+                    timeLabel: timeLabel,
+                    isOwner: isOwner,
+                    onEdit: () => _handleEdit(context),
+                    onDelete: () => _handleDelete(context),
+                  ),
+                  const SizedBox(height: 16),
+                  if (post['content'] != null &&
+                      post['content'].toString().isNotEmpty)
+                    _PostContent(content: post['content']),
+                  if (post['image_url'] != null)
+                    _PostImage(imageUrl: post['image_url']),
+                  const SizedBox(height: 12),
+                  _PostActions(
+                    postId: post['id'],
+                    post: post,
+                    postService: postService,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ==================== POST HEADER ====================
+class _PostHeader extends StatelessWidget {
+  final String username;
+  final String? avatarUrl;
+  final String timeLabel;
+  final bool isOwner;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _PostHeader({
+    required this.username,
+    required this.avatarUrl,
+    required this.timeLabel,
+    required this.isOwner,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        CircleAvatar(
+          radius: 23,
+          backgroundColor: Colors.grey[200],
+          backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl!) : null,
+          child:
+              avatarUrl == null
+                  ? Icon(Icons.person, color: Colors.grey[600])
+                  : null,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                username,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+              ),
+              if (timeLabel.isNotEmpty)
+                Text(
+                  timeLabel,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.grey[500],
+                    fontSize: 12,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (isOwner)
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'edit') {
+                onEdit();
+              } else if (value == 'delete') {
+                onDelete();
+              }
+            },
+            itemBuilder:
+                (context) => const [
+                  PopupMenuItem(value: 'edit', child: Text("Edit")),
+                  PopupMenuItem(value: 'delete', child: Text("Delete")),
+                ],
+          ),
+      ],
+    );
+  }
+}
+
+// ==================== POST CONTENT ====================
+class _PostContent extends StatelessWidget {
+  final String content;
+
+  const _PostContent({required this.content});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Text(
+        content,
+        style: Theme.of(
+          context,
+        ).textTheme.bodyLarge?.copyWith(fontSize: 15, height: 1.4),
+      ),
+    );
+  }
+}
+
+// ==================== POST IMAGE ====================
+class _PostImage extends StatelessWidget {
+  final String imageUrl;
+
+  const _PostImage({required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Image.network(
+          imageUrl,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          loadingBuilder: (context, child, progress) {
+            if (progress == null) return child;
+            return Container(
+              height: 200,
+              color: Colors.grey[200],
+              child: const Center(child: CircularProgressIndicator()),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              height: 200,
+              color: Colors.grey[200],
+              child: const Icon(Icons.error),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// ==================== POST ACTIONS ====================
+class _PostActions extends StatelessWidget {
+  final String postId;
+  final Map<String, dynamic> post;
+  final PostService postService;
+
+  const _PostActions({
+    required this.postId,
+    required this.post,
+    required this.postService,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      children: [
+        _LikeButton(postId: postId, postService: postService),
+        _CommentButton(postId: postId, post: post, postService: postService),
+      ],
+    );
+  }
+}
+
+// ==================== LIKE BUTTON ====================
 class _LikeButton extends StatefulWidget {
   final String postId;
   final PostService postService;
@@ -361,8 +433,8 @@ class _LikeButton extends StatefulWidget {
 
 class _LikeButtonState extends State<_LikeButton>
     with SingleTickerProviderStateMixin {
-  late AnimationController _animationController;
-  late Animation<double> _scaleAnimation;
+  late final AnimationController _animationController;
+  late final Animation<double> _scaleAnimation;
   bool _isLiked = false;
   bool _isLoading = true;
 
@@ -407,19 +479,17 @@ class _LikeButtonState extends State<_LikeButton>
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
       }
     }
   }
 
   Future<void> _handleLike() async {
+    final previousState = _isLiked;
+
     try {
       // Optimistic UI update
-      setState(() {
-        _isLiked = !_isLiked;
-      });
+      setState(() => _isLiked = !_isLiked);
 
       // Play animation only when liking
       if (_isLiked) {
@@ -431,16 +501,12 @@ class _LikeButtonState extends State<_LikeButton>
 
       // Update state based on actual result
       if (mounted) {
-        setState(() {
-          _isLiked = newLikeState;
-        });
+        setState(() => _isLiked = newLikeState);
       }
     } catch (e) {
       // Revert on error
       if (mounted) {
-        setState(() {
-          _isLiked = !_isLiked;
-        });
+        setState(() => _isLiked = previousState);
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
@@ -500,7 +566,7 @@ class _LikeButtonState extends State<_LikeButton>
   }
 }
 
-// Comment Button Widget with real-time count
+// ==================== COMMENT BUTTON ====================
 class _CommentButton extends StatelessWidget {
   final String postId;
   final Map<String, dynamic> post;
@@ -539,6 +605,66 @@ class _CommentButton extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+// ==================== EMPTY STATE ====================
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.article_outlined, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text(
+            "No posts yet",
+            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Be the first to share something!",
+            style: TextStyle(color: Colors.grey[500]),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ==================== ERROR STATE ====================
+class _ErrorState extends StatelessWidget {
+  final String error;
+
+  const _ErrorState({required this.error});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+          const SizedBox(height: 16),
+          Text(
+            "Something went wrong",
+            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              error,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[500], fontSize: 12),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
