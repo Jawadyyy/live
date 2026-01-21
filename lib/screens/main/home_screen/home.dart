@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:live/auth/auth_service.dart';
 import 'package:live/components/appbar.dart';
+import 'package:live/components/post_fab.dart';
 import 'package:live/screens/main/home_screen/services/comments_screen.dart'
     show CommentsScreen;
 import 'package:live/screens/main/home_screen/services/post_service.dart';
@@ -104,11 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _openCreatePost,
-        backgroundColor: colorScheme.primary,
-        child: const Icon(Icons.add, color: Colors.black),
-      ),
+      floatingActionButton: PostFab(onPressed: _openCreatePost),
     );
   }
 }
