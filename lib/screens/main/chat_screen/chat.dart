@@ -4,6 +4,7 @@ import 'package:live/components/appbar.dart';
 import 'package:live/screens/theme/theme_provider.dart';
 import 'package:live/components/chat_fab.dart';
 import 'package:live/screens/main/chat_screen/search_screen/search_screen.dart';
+import 'package:live/screens/main/chat_screen/message_screen/message_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:live/screens/main/controllers/friends_controller.dart';
 
@@ -98,16 +99,24 @@ class ChatScreen extends StatelessWidget {
                                     horizontal: 16,
                                     vertical: 8,
                                   ),
-                                  leading: CircleAvatar(
-                                    radius: 28,
-                                    backgroundImage:
-                                        friend['avatar_url'] != null
-                                            ? NetworkImage(friend['avatar_url'])
-                                            : null,
-                                    child:
-                                        friend['avatar_url'] == null
-                                            ? const Icon(Icons.person, size: 28)
-                                            : null,
+                                  leading: Hero(
+                                    tag: 'avatar_${friend['id']}',
+                                    child: CircleAvatar(
+                                      radius: 28,
+                                      backgroundImage:
+                                          friend['avatar_url'] != null
+                                              ? NetworkImage(
+                                                friend['avatar_url'],
+                                              )
+                                              : null,
+                                      child:
+                                          friend['avatar_url'] == null
+                                              ? const Icon(
+                                                Icons.person,
+                                                size: 28,
+                                              )
+                                              : null,
+                                    ),
                                   ),
                                   title: Text(
                                     friend['username'] ?? "Unknown",
@@ -120,7 +129,21 @@ class ChatScreen extends StatelessWidget {
                                     "Tap to start chat",
                                     style: TextStyle(color: Colors.grey[600]),
                                   ),
-                                  onTap: () {},
+                                  trailing: Icon(
+                                    Icons.chevron_right,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                  ),
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (context) =>
+                                                MessageScreen(friend: friend),
+                                      ),
+                                    );
+                                  },
                                 ),
                               );
                             },
