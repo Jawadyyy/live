@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:live/screens/main/chat_screen/message_screen//message_service/message_service.dart';
+import 'package:timeago/timeago.dart' as timeago;
 
 class MessageScreen extends StatefulWidget {
   final Map<String, dynamic> friend;
@@ -13,43 +15,21 @@ class MessageScreen extends StatefulWidget {
 class _MessageScreenState extends State<MessageScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final supabase = Supabase.instance.client;
-
-  List<Map<String, dynamic>> messages = [];
-  bool isLoading = true;
+  final _messageService = MessageService();
+  final _supabase = Supabase.instance.client;
 
   @override
   void initState() {
     super.initState();
-    _loadMessages();
+    // Mark messages as read when screen opens
+    _markMessagesAsRead();
   }
 
-  Future<void> _loadMessages() async {
-    setState(() => isLoading = true);
-
+  Future<void> _markMessagesAsRead() async {
     try {
-      final currentUserId = supabase.auth.currentUser?.id;
-      if (currentUserId == null) return;
-
-      // Fetch messages between current user and friend
-      final response = await supabase
-          .from('messages')
-          .select()
-          .or('sender_id.eq.$currentUserId,receiver_id.eq.$currentUserId')
-          .or(
-            'sender_id.eq.${widget.friend['id']},receiver_id.eq.${widget.friend['id']}',
-          )
-          .order('created_at', ascending: true);
-
-      setState(() {
-        messages = List<Map<String, dynamic>>.from(response);
-        isLoading = false;
-      });
-
-      _scrollToBottom();
+      await _messageService.markAllAsRead(widget.friend['id']);
     } catch (e) {
-      debugPrint("❌ Error loading messages: $e");
-      setState(() => isLoading = false);
+      debugPrint('Error marking messages as read: $e');
     }
   }
 
@@ -57,32 +37,32 @@ class _MessageScreenState extends State<MessageScreen> {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
 
-    final currentUserId = supabase.auth.currentUser?.id;
-    if (currentUserId == null) return;
-
     try {
-      await supabase.from('messages').insert({
-        'sender_id': currentUserId,
-        'receiver_id': widget.friend['id'],
-        'content': text,
-        'created_at': DateTime.now().toIso8601String(),
-      });
+      await _messageService.sendMessage(
+        receiverId: widget.friend['id'],
+        content: text,
+      );
 
       _messageController.clear();
-      await _loadMessages();
+      _scrollToBottom();
     } catch (e) {
-      debugPrint("❌ Error sending message: $e");
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to send message: $e')));
     }
   }
 
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
       Future.delayed(const Duration(milliseconds: 100), () {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
       });
     }
   }
@@ -90,7 +70,7 @@ class _MessageScreenState extends State<MessageScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final currentUserId = supabase.auth.currentUser?.id;
+    final currentUserId = _supabase.auth.currentUser?.id;
 
     return Scaffold(
       appBar: AppBar(
@@ -141,81 +121,130 @@ class _MessageScreenState extends State<MessageScreen> {
         actions: [
           IconButton(
             icon: Icon(Icons.videocam, color: theme.colorScheme.primary),
-            onPressed: () {},
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Video call coming soon!')),
+              );
+            },
           ),
           IconButton(
             icon: Icon(Icons.call, color: theme.colorScheme.primary),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: Icon(Icons.info_outline, color: theme.colorScheme.onSurface),
-            onPressed: () {},
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Voice call coming soon!')),
+              );
+            },
           ),
         ],
       ),
       body: Column(
         children: [
-          // Messages List
+          // Messages List with Real-time Stream
           Expanded(
-            child:
-                isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : messages.isEmpty
-                    ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          CircleAvatar(
-                            radius: 50,
-                            backgroundImage:
-                                widget.friend['avatar_url'] != null
-                                    ? NetworkImage(widget.friend['avatar_url'])
-                                    : null,
-                            child:
-                                widget.friend['avatar_url'] == null
-                                    ? const Icon(Icons.person, size: 50)
-                                    : null,
-                          ),
-                          const SizedBox(height: 20),
-                          Text(
-                            widget.friend['username'] ?? 'Unknown',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: theme.colorScheme.onSurface,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Start a conversation',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                    : ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.all(16),
-                      itemCount: messages.length,
-                      itemBuilder: (context, index) {
-                        final message = messages[index];
-                        final isMe = message['sender_id'] == currentUserId;
-                        final showAvatar =
-                            index == messages.length - 1 ||
-                            messages[index + 1]['sender_id'] !=
-                                message['sender_id'];
+            child: StreamBuilder<List<Map<String, dynamic>>>(
+              stream: _messageService.getMessagesStream(widget.friend['id']),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-                        return _buildMessageBubble(
-                          message['content'] ?? '',
-                          isMe,
-                          showAvatar,
-                          message['created_at'],
-                        );
-                      },
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 64,
+                          color: Colors.red[300],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Error loading messages',
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () => setState(() {}),
+                          child: const Text('Retry'),
+                        ),
+                      ],
                     ),
+                  );
+                }
+
+                final messages = snapshot.data ?? [];
+
+                // Auto-scroll to bottom when new messages arrive
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _scrollToBottom();
+                });
+
+                if (messages.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircleAvatar(
+                          radius: 50,
+                          backgroundImage:
+                              widget.friend['avatar_url'] != null
+                                  ? NetworkImage(widget.friend['avatar_url'])
+                                  : null,
+                          child:
+                              widget.friend['avatar_url'] == null
+                                  ? const Icon(Icons.person, size: 50)
+                                  : null,
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          widget.friend['username'] ?? 'Unknown',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Start a conversation',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.all(16),
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) {
+                    final message = messages[index];
+                    final isMe = message['sender_id'] == currentUserId;
+                    final showAvatar =
+                        index == messages.length - 1 ||
+                        messages[index + 1]['sender_id'] !=
+                            message['sender_id'];
+
+                    final createdAt =
+                        message['created_at'] != null
+                            ? DateTime.parse(message['created_at']).toLocal()
+                            : null;
+
+                    return _buildMessageBubble(
+                      message: message,
+                      isMe: isMe,
+                      showAvatar: showAvatar,
+                      timestamp: createdAt,
+                    );
+                  },
+                );
+              },
+            ),
           ),
 
           // Message Input
@@ -236,22 +265,26 @@ class _MessageScreenState extends State<MessageScreen> {
                 children: [
                   IconButton(
                     icon: Icon(
-                      Icons.add_circle,
-                      color: theme.colorScheme.primary,
-                      size: 28,
-                    ),
-                    onPressed: () {},
-                  ),
-                  IconButton(
-                    icon: Icon(
                       Icons.photo_camera,
                       color: theme.colorScheme.primary,
                     ),
-                    onPressed: () {},
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Photo sharing coming soon!'),
+                        ),
+                      );
+                    },
                   ),
                   IconButton(
                     icon: Icon(Icons.mic, color: theme.colorScheme.primary),
-                    onPressed: () {},
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Voice messages coming soon!'),
+                        ),
+                      );
+                    },
                   ),
                   Expanded(
                     child: Container(
@@ -271,6 +304,7 @@ class _MessageScreenState extends State<MessageScreen> {
                           border: InputBorder.none,
                         ),
                         textCapitalization: TextCapitalization.sentences,
+                        onSubmitted: (_) => _sendMessage(),
                       ),
                     ),
                   ),
@@ -299,13 +333,15 @@ class _MessageScreenState extends State<MessageScreen> {
     );
   }
 
-  Widget _buildMessageBubble(
-    String text,
-    bool isMe,
-    bool showAvatar,
-    String? timestamp,
-  ) {
+  Widget _buildMessageBubble({
+    required Map<String, dynamic> message,
+    required bool isMe,
+    required bool showAvatar,
+    DateTime? timestamp,
+  }) {
     final theme = Theme.of(context);
+    final content = message['content'] ?? '';
+    final isRead = message['is_read'] ?? false;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -330,31 +366,64 @@ class _MessageScreenState extends State<MessageScreen> {
             const SizedBox(width: 28),
           const SizedBox(width: 8),
           Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: isMe ? theme.colorScheme.primary : theme.cardColor,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(18),
-                  topRight: const Radius.circular(18),
-                  bottomLeft: Radius.circular(isMe ? 18 : 4),
-                  bottomRight: Radius.circular(isMe ? 4 : 18),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 5,
-                    offset: const Offset(0, 2),
+            child: Column(
+              crossAxisAlignment:
+                  isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
                   ),
-                ],
-              ),
-              child: Text(
-                text,
-                style: TextStyle(
-                  color: isMe ? Colors.white : theme.colorScheme.onSurface,
-                  fontSize: 15,
+                  decoration: BoxDecoration(
+                    color: isMe ? theme.colorScheme.primary : theme.cardColor,
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(18),
+                      topRight: const Radius.circular(18),
+                      bottomLeft: Radius.circular(isMe ? 18 : 4),
+                      bottomRight: Radius.circular(isMe ? 4 : 18),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 5,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    content,
+                    style: TextStyle(
+                      color: isMe ? Colors.white : theme.colorScheme.onSurface,
+                      fontSize: 15,
+                    ),
+                  ),
                 ),
-              ),
+                if (timestamp != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          timeago.format(timestamp),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[500],
+                          ),
+                        ),
+                        if (isMe) ...[
+                          const SizedBox(width: 4),
+                          Icon(
+                            isRead ? Icons.done_all : Icons.done,
+                            size: 14,
+                            color: isRead ? Colors.blue : Colors.grey[500],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+              ],
             ),
           ),
         ],

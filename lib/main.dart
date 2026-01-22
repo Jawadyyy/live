@@ -7,12 +7,17 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  //supabase setup
+
+  // Supabase setup
   await Supabase.initialize(
+    url: "https://wazlabkcwwjfwzwtsjhw.supabase.co",
     anonKey:
         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndhemxhYmtjd3dqZnd6d3Rzamh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg4MTE2NTQsImV4cCI6MjA2NDM4NzY1NH0.HGInfGvzZDDgp6bnYGFWerqWHnDsEEzWuQVqdGGUutw",
-    url: "https://wazlabkcwwjfwzwtsjhw.supabase.co",
+    authOptions: const FlutterAuthClientOptions(
+      authFlowType: AuthFlowType.pkce,
+    ),
   );
+
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeProvider(),
