@@ -22,8 +22,8 @@ class FriendsController extends ChangeNotifier {
           .from('friendships')
           .select(
             'id, requester_id, addressee_id, '
-            'requester:users!friendships_requester_id_fkey(username, avatar_url), '
-            'addressee:users!friendships_addressee_id_fkey(username, avatar_url)',
+            'requester:users!friendships_requester_id_fkey(id, username, avatar_url), '
+            'addressee:users!friendships_addressee_id_fkey(id, username, avatar_url)',
           )
           .or('requester_id.eq.$currentUserId,addressee_id.eq.$currentUserId')
           .eq('status', 'accepted');
@@ -34,8 +34,9 @@ class FriendsController extends ChangeNotifier {
       friends =
           data.map((f) {
             final isRequester = f['requester_id'] == currentUserId;
+            // FIXED: Use the actual user ID, not friendship ID
             return {
-              'id': f['id'],
+              'id': isRequester ? f['addressee']['id'] : f['requester']['id'],
               'username':
                   isRequester
                       ? f['addressee']['username']
