@@ -1,3 +1,3 @@
 # live
 
-Streaming based app and supabase supported
+Streaming based app backed with suapabas and agora
