@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:live/screens/agora_services/agora_call_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:live/screens/main/chat_screen/message_screen/message_service/message_service.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -7,6 +8,7 @@ import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:live/screens/main/chat_screen/message_screen/call_screen/call_screen.dart';
 
 class MessageScreen extends StatefulWidget {
   final Map<String, dynamic> friend;
@@ -15,7 +17,8 @@ class MessageScreen extends StatefulWidget {
   State<MessageScreen> createState() => _MessageScreenState();
 }
 
-class _MessageScreenState extends State<MessageScreen> with TickerProviderStateMixin {
+class _MessageScreenState extends State<MessageScreen>
+    with TickerProviderStateMixin {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final _messageService = MessageService();
@@ -47,7 +50,8 @@ class _MessageScreenState extends State<MessageScreen> with TickerProviderStateM
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
     try {
-      await _messageService.sendMessage(receiverId: widget.friend['id'], content: text);
+      await _messageService.sendMessage(
+          receiverId: widget.friend['id'], content: text);
       _messageController.clear();
       _scrollToBottom();
     } catch (e) {
@@ -96,12 +100,22 @@ class _MessageScreenState extends State<MessageScreen> with TickerProviderStateM
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 20),
-            decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
-          Text('Share Attachment', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: colors.onSurface)),
+          Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2))),
+          Text('Share Attachment',
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: colors.onSurface)),
           const SizedBox(height: 24),
           Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-            _attachOption(Icons.photo_library_rounded, 'Gallery', Colors.purple, () {
+            _attachOption(Icons.photo_library_rounded, 'Gallery', Colors.purple,
+                () {
               Navigator.pop(ctx);
               _pickImage(ImageSource.gallery);
             }),
@@ -109,7 +123,8 @@ class _MessageScreenState extends State<MessageScreen> with TickerProviderStateM
               Navigator.pop(ctx);
               _pickImage(ImageSource.camera);
             }),
-            _attachOption(Icons.insert_drive_file_rounded, 'File', Colors.orange, () {
+            _attachOption(
+                Icons.insert_drive_file_rounded, 'File', Colors.orange, () {
               Navigator.pop(ctx);
               _pickFile();
             }),
@@ -120,12 +135,14 @@ class _MessageScreenState extends State<MessageScreen> with TickerProviderStateM
     );
   }
 
-  Widget _attachOption(IconData icon, String label, Color color, VoidCallback onTap) {
+  Widget _attachOption(
+      IconData icon, String label, Color color, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Column(children: [
         Container(
-          width: 60, height: 60,
+          width: 60,
+          height: 60,
           decoration: BoxDecoration(
             color: color.withOpacity(0.12),
             borderRadius: BorderRadius.circular(16),
@@ -133,7 +150,11 @@ class _MessageScreenState extends State<MessageScreen> with TickerProviderStateM
           child: Icon(icon, color: color, size: 28),
         ),
         const SizedBox(height: 8),
-        Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.grey[700])),
+        Text(label,
+            style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey[700])),
       ]),
     );
   }
@@ -141,7 +162,8 @@ class _MessageScreenState extends State<MessageScreen> with TickerProviderStateM
   Future<void> _pickImage(ImageSource source) async {
     try {
       final picker = ImagePicker();
-      final picked = await picker.pickImage(source: source, imageQuality: 75, maxWidth: 1200);
+      final picked = await picker.pickImage(
+          source: source, imageQuality: 75, maxWidth: 1200);
       if (picked == null) return;
       await _uploadAndSend(File(picked.path));
     } catch (e) {
@@ -167,20 +189,28 @@ class _MessageScreenState extends State<MessageScreen> with TickerProviderStateM
   }
 
   Future<void> _uploadAndSend(File file) async {
-    setState(() { _isUploading = true; _uploadProgress = 0; });
+    setState(() {
+      _isUploading = true;
+      _uploadProgress = 0;
+    });
     try {
       // Simulate progress
       for (var i = 1; i <= 3; i++) {
         await Future.delayed(const Duration(milliseconds: 200));
         if (mounted) setState(() => _uploadProgress = i * 0.25);
       }
-      await _messageService.sendFileMessage(receiverId: widget.friend['id'], file: file);
+      await _messageService.sendFileMessage(
+          receiverId: widget.friend['id'], file: file);
       if (mounted) setState(() => _uploadProgress = 1.0);
       _scrollToBottom();
     } catch (e) {
       if (mounted) _showErrorSnackbar('Failed to send file');
     } finally {
-      if (mounted) setState(() { _isUploading = false; _uploadProgress = 0; });
+      if (mounted)
+        setState(() {
+          _isUploading = false;
+          _uploadProgress = 0;
+        });
     }
   }
 
@@ -199,7 +229,8 @@ class _MessageScreenState extends State<MessageScreen> with TickerProviderStateM
     return '${(bytes / 1048576).toStringAsFixed(1)} MB';
   }
 
-  bool _isSameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   Widget _buildUserAvatar({double radius = 20}) {
     return Hero(
@@ -207,8 +238,12 @@ class _MessageScreenState extends State<MessageScreen> with TickerProviderStateM
       child: CircleAvatar(
         radius: radius,
         backgroundColor: Colors.grey[200],
-        backgroundImage: widget.friend['avatar_url'] != null ? NetworkImage(widget.friend['avatar_url']) : null,
-        child: widget.friend['avatar_url'] == null ? Icon(Icons.person, size: radius, color: Colors.grey[600]) : null,
+        backgroundImage: widget.friend['avatar_url'] != null
+            ? NetworkImage(widget.friend['avatar_url'])
+            : null,
+        child: widget.friend['avatar_url'] == null
+            ? Icon(Icons.person, size: radius, color: Colors.grey[600])
+            : null,
       ),
     );
   }
@@ -241,17 +276,21 @@ class _MessageScreenState extends State<MessageScreen> with TickerProviderStateM
                 children: [
                   Text(
                     widget.friend['username'] ?? 'Unknown',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w600),
                     overflow: TextOverflow.ellipsis,
                   ),
                   Row(
                     children: [
                       Container(
-                        width: 8, height: 8,
-                        decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                            color: Colors.green, shape: BoxShape.circle),
                       ),
                       const SizedBox(width: 6),
-                      const Text('Online', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      const Text('Online',
+                          style: TextStyle(fontSize: 12, color: Colors.grey)),
                     ],
                   ),
                 ],
@@ -263,29 +302,62 @@ class _MessageScreenState extends State<MessageScreen> with TickerProviderStateM
           IconButton(
             icon: Container(
               padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(color: colors.primary.withOpacity(0.1), shape: BoxShape.circle),
-              child: Icon(Icons.videocam_rounded, size: 22, color: colors.primary),
+              decoration: BoxDecoration(
+                  color: colors.primary.withOpacity(0.1),
+                  shape: BoxShape.circle),
+              child:
+                  Icon(Icons.videocam_rounded, size: 22, color: colors.primary),
             ),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: const Text('Video call coming soon!'),
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ));
+            onPressed: () async {
+              try {
+                final callData = await AgoraCallService().initiateCall(
+                  receiverId: widget.friend['id'],
+                  callType: 'video',
+                );
+                if (!mounted) return;
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CallScreen(
+                        friend: widget.friend,
+                        channelName: callData['channel_name'],
+                        callId: callData['id'],
+                        isVideo: true,
+                      ),
+                    ));
+              } catch (e) {
+                _showErrorSnackbar('Could not start video call');
+              }
             },
           ),
           IconButton(
             icon: Container(
               padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(color: colors.primary.withOpacity(0.1), shape: BoxShape.circle),
+              decoration: BoxDecoration(
+                  color: colors.primary.withOpacity(0.1),
+                  shape: BoxShape.circle),
               child: Icon(Icons.call_rounded, size: 22, color: colors.primary),
             ),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: const Text('Voice call coming soon!'),
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ));
+            onPressed: () async {
+              try {
+                final callData = await AgoraCallService().initiateCall(
+                  receiverId: widget.friend['id'],
+                  callType: 'voice',
+                );
+                if (!mounted) return;
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CallScreen(
+                        friend: widget.friend,
+                        channelName: callData['channel_name'],
+                        callId: callData['id'],
+                        isVideo: false,
+                      ),
+                    ));
+              } catch (e) {
+                _showErrorSnackbar('Could not start voice call');
+              }
             },
           ),
           const SizedBox(width: 4),
@@ -294,14 +366,19 @@ class _MessageScreenState extends State<MessageScreen> with TickerProviderStateM
       body: Column(children: [
         // Upload progress bar
         if (_isUploading)
-          LinearProgressIndicator(value: _uploadProgress, backgroundColor: colors.primary.withOpacity(0.1), valueColor: AlwaysStoppedAnimation(colors.primary), minHeight: 3),
+          LinearProgressIndicator(
+              value: _uploadProgress,
+              backgroundColor: colors.primary.withOpacity(0.1),
+              valueColor: AlwaysStoppedAnimation(colors.primary),
+              minHeight: 3),
 
         // Messages
         Expanded(
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
                 colors: [colors.primary.withOpacity(0.03), colors.surface],
               ),
             ),
@@ -309,37 +386,87 @@ class _MessageScreenState extends State<MessageScreen> with TickerProviderStateM
               stream: _messagesStream,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    SizedBox(width: 40, height: 40, child: CircularProgressIndicator(strokeWidth: 3, color: colors.primary)),
-                    const SizedBox(height: 16),
-                    Text('Loading messages...', style: TextStyle(color: Colors.grey[500], fontSize: 14)),
-                  ]));
+                  return Center(
+                      child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                        SizedBox(
+                            width: 40,
+                            height: 40,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 3, color: colors.primary)),
+                        const SizedBox(height: 16),
+                        Text('Loading messages...',
+                            style: TextStyle(
+                                color: Colors.grey[500], fontSize: 14)),
+                      ]));
                 }
                 if (snapshot.hasError) {
-                  return Center(child: Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), shape: BoxShape.circle),
-                      child: const Icon(Icons.error_outline_rounded, size: 48, color: Colors.redAccent)),
-                    const SizedBox(height: 16),
-                    Text('Couldn\'t load messages', style: TextStyle(fontSize: 16, color: Colors.grey[700], fontWeight: FontWeight.w500)),
-                    const SizedBox(height: 20),
-                    FilledButton.tonal(onPressed: () => setState(() {}), child: const Text('Try Again')),
-                  ])));
+                  return Center(
+                      child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                    padding: const EdgeInsets.all(20),
+                                    decoration: BoxDecoration(
+                                        color: Colors.red.withOpacity(0.1),
+                                        shape: BoxShape.circle),
+                                    child: const Icon(
+                                        Icons.error_outline_rounded,
+                                        size: 48,
+                                        color: Colors.redAccent)),
+                                const SizedBox(height: 16),
+                                Text('Couldn\'t load messages',
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.grey[700],
+                                        fontWeight: FontWeight.w500)),
+                                const SizedBox(height: 20),
+                                FilledButton.tonal(
+                                    onPressed: () => setState(() {}),
+                                    child: const Text('Try Again')),
+                              ])));
                 }
 
                 final messages = snapshot.data ?? [];
-                WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+                WidgetsBinding.instance
+                    .addPostFrameCallback((_) => _scrollToBottom());
 
                 if (messages.isEmpty) {
-                  return Center(child: Padding(padding: const EdgeInsets.all(40), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Container(width: 120, height: 120, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: colors.primary.withOpacity(0.2), width: 3)),
-                      child: _buildUserAvatar(radius: 50)),
-                    const SizedBox(height: 24),
-                    Text(widget.friend['username'] ?? 'Unknown', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 8),
-                    Text('Say hello! 👋', style: TextStyle(fontSize: 15, color: Colors.grey[600])),
-                    const SizedBox(height: 6),
-                    Text('Send your first message to start the conversation', style: TextStyle(fontSize: 13, color: Colors.grey[500]), textAlign: TextAlign.center),
-                  ])));
+                  return Center(
+                      child: Padding(
+                          padding: const EdgeInsets.all(40),
+                          child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                    width: 120,
+                                    height: 120,
+                                    decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                            color:
+                                                colors.primary.withOpacity(0.2),
+                                            width: 3)),
+                                    child: _buildUserAvatar(radius: 50)),
+                                const SizedBox(height: 24),
+                                Text(widget.friend['username'] ?? 'Unknown',
+                                    style: const TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w700)),
+                                const SizedBox(height: 8),
+                                Text('Say hello! 👋',
+                                    style: TextStyle(
+                                        fontSize: 15, color: Colors.grey[600])),
+                                const SizedBox(height: 6),
+                                Text(
+                                    'Send your first message to start the conversation',
+                                    style: TextStyle(
+                                        fontSize: 13, color: Colors.grey[500]),
+                                    textAlign: TextAlign.center),
+                              ])));
                 }
 
                 return ListView.builder(
@@ -349,8 +476,12 @@ class _MessageScreenState extends State<MessageScreen> with TickerProviderStateM
                   itemBuilder: (context, index) {
                     final message = messages[index];
                     final isMe = message['sender_id'] == currentUserId;
-                    final showAvatar = index == 0 || messages[index - 1]['sender_id'] != message['sender_id'];
-                    final createdAt = message['created_at'] != null ? DateTime.parse(message['created_at']).toLocal() : null;
+                    final showAvatar = index == 0 ||
+                        messages[index - 1]['sender_id'] !=
+                            message['sender_id'];
+                    final createdAt = message['created_at'] != null
+                        ? DateTime.parse(message['created_at']).toLocal()
+                        : null;
 
                     // Date separator
                     Widget? dateSeparator;
@@ -358,9 +489,14 @@ class _MessageScreenState extends State<MessageScreen> with TickerProviderStateM
                       if (index == 0) {
                         dateSeparator = _buildDateSeparator(createdAt);
                       } else {
-                        final prevCreatedAt = messages[index - 1]['created_at'] != null
-                            ? DateTime.parse(messages[index - 1]['created_at']).toLocal() : null;
-                        if (prevCreatedAt == null || !_isSameDay(createdAt, prevCreatedAt)) {
+                        final prevCreatedAt = messages[index - 1]
+                                    ['created_at'] !=
+                                null
+                            ? DateTime.parse(messages[index - 1]['created_at'])
+                                .toLocal()
+                            : null;
+                        if (prevCreatedAt == null ||
+                            !_isSameDay(createdAt, prevCreatedAt)) {
                           dateSeparator = _buildDateSeparator(createdAt);
                         }
                       }
@@ -368,7 +504,12 @@ class _MessageScreenState extends State<MessageScreen> with TickerProviderStateM
 
                     return Column(children: [
                       if (dateSeparator != null) dateSeparator,
-                      _buildMessageBubble(message: message, isMe: isMe, showAvatar: showAvatar, timestamp: createdAt, isLast: index == messages.length - 1),
+                      _buildMessageBubble(
+                          message: message,
+                          isMe: isMe,
+                          showAvatar: showAvatar,
+                          timestamp: createdAt,
+                          isLast: index == messages.length - 1),
                     ]);
                   },
                 );
@@ -391,7 +532,10 @@ class _MessageScreenState extends State<MessageScreen> with TickerProviderStateM
                 height: 280,
                 checkPlatformCompatibility: true,
                 emojiViewConfig: EmojiViewConfig(
-                  emojiSizeMax: 28 * (Theme.of(context).platform == TargetPlatform.iOS ? 1.2 : 1.0),
+                  emojiSizeMax: 28 *
+                      (Theme.of(context).platform == TargetPlatform.iOS
+                          ? 1.2
+                          : 1.0),
                   backgroundColor: colors.surface,
                 ),
                 categoryViewConfig: CategoryViewConfig(
@@ -403,7 +547,8 @@ class _MessageScreenState extends State<MessageScreen> with TickerProviderStateM
                 searchViewConfig: SearchViewConfig(
                   backgroundColor: colors.surface,
                 ),
-                bottomActionBarConfig: const BottomActionBarConfig(enabled: false),
+                bottomActionBarConfig:
+                    const BottomActionBarConfig(enabled: false),
               ),
             ),
           ),
@@ -423,10 +568,17 @@ class _MessageScreenState extends State<MessageScreen> with TickerProviderStateM
     }
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Center(child: Container(
+      child: Center(
+          child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(color: Colors.grey.withOpacity(0.12), borderRadius: BorderRadius.circular(12)),
-        child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey[600])),
+        decoration: BoxDecoration(
+            color: Colors.grey.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(12)),
+        child: Text(label,
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey[600])),
       )),
     );
   }
@@ -436,66 +588,105 @@ class _MessageScreenState extends State<MessageScreen> with TickerProviderStateM
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: colors.surface,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, -2))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, -2))
+        ],
       ),
-      child: SafeArea(top: false, child: Row(children: [
-        // Attachment button
-        GestureDetector(
-          onTap: _showAttachmentOptions,
-          child: Container(
-            width: 42, height: 42,
-            decoration: BoxDecoration(color: colors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-            child: Icon(Icons.add_rounded, size: 24, color: colors.primary),
-          ),
-        ),
-        const SizedBox(width: 10),
-        // Text field
-        Expanded(child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          decoration: BoxDecoration(
-            color: colors.surfaceContainerHighest.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(24),
-          ),
+      child: SafeArea(
+          top: false,
           child: Row(children: [
-            Expanded(child: TextField(
-              controller: _messageController,
-              focusNode: _messageFocusNode,
-              maxLines: 4, minLines: 1,
-              textCapitalization: TextCapitalization.sentences,
-              style: const TextStyle(fontSize: 15),
-              decoration: const InputDecoration(hintText: 'Type a message...', border: InputBorder.none, hintStyle: TextStyle(color: Colors.grey)),
-              onTap: () { if (_showEmojiPicker) setState(() => _showEmojiPicker = false); },
-              onSubmitted: (_) => _sendMessage(),
-            )),
+            // Attachment button
             GestureDetector(
-              onTap: _toggleEmojiPicker,
-              child: Padding(padding: const EdgeInsets.all(4),
-                child: Icon(_showEmojiPicker ? Icons.keyboard_rounded : Icons.emoji_emotions_outlined,
-                  color: _showEmojiPicker ? colors.primary : Colors.grey[500], size: 24)),
+              onTap: _showAttachmentOptions,
+              child: Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                    color: colors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12)),
+                child: Icon(Icons.add_rounded, size: 24, color: colors.primary),
+              ),
             ),
-          ]),
-        )),
-        const SizedBox(width: 10),
-        // Send button
-        GestureDetector(
-          onTap: _sendMessage,
-          child: Container(
-            width: 46, height: 46,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [colors.primary, colors.primary.withOpacity(0.8)]),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [BoxShadow(color: colors.primary.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 3))],
+            const SizedBox(width: 10),
+            // Text field
+            Expanded(
+                child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: colors.surfaceContainerHighest.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Row(children: [
+                Expanded(
+                    child: TextField(
+                  controller: _messageController,
+                  focusNode: _messageFocusNode,
+                  maxLines: 4,
+                  minLines: 1,
+                  textCapitalization: TextCapitalization.sentences,
+                  style: const TextStyle(fontSize: 15),
+                  decoration: const InputDecoration(
+                      hintText: 'Type a message...',
+                      border: InputBorder.none,
+                      hintStyle: TextStyle(color: Colors.grey)),
+                  onTap: () {
+                    if (_showEmojiPicker)
+                      setState(() => _showEmojiPicker = false);
+                  },
+                  onSubmitted: (_) => _sendMessage(),
+                )),
+                GestureDetector(
+                  onTap: _toggleEmojiPicker,
+                  child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                          _showEmojiPicker
+                              ? Icons.keyboard_rounded
+                              : Icons.emoji_emotions_outlined,
+                          color: _showEmojiPicker
+                              ? colors.primary
+                              : Colors.grey[500],
+                          size: 24)),
+                ),
+              ]),
+            )),
+            const SizedBox(width: 10),
+            // Send button
+            GestureDetector(
+              onTap: _sendMessage,
+              child: Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [
+                    colors.primary,
+                    colors.primary.withOpacity(0.8)
+                  ]),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                        color: colors.primary.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3))
+                  ],
+                ),
+                child: const Icon(Icons.send_rounded,
+                    color: Colors.white, size: 20),
+              ),
             ),
-            child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
-          ),
-        ),
-      ])),
+          ])),
     );
   }
 
   Widget _buildMessageBubble({
     required Map<String, dynamic> message,
-    required bool isMe, required bool showAvatar, required bool isLast, DateTime? timestamp,
+    required bool isMe,
+    required bool showAvatar,
+    required bool isLast,
+    DateTime? timestamp,
   }) {
     final colors = Theme.of(context).colorScheme;
     final content = message['content'] ?? '';
@@ -508,40 +699,72 @@ class _MessageScreenState extends State<MessageScreen> with TickerProviderStateM
     return Padding(
       padding: EdgeInsets.only(bottom: isLast ? 4 : 6, top: showAvatar ? 6 : 2),
       child: Row(
-        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment:
+            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isMe && showAvatar)
-            Padding(padding: const EdgeInsets.only(right: 8), child: CircleAvatar(
-              radius: 16, backgroundColor: Colors.grey[200],
-              backgroundImage: widget.friend['avatar_url'] != null ? NetworkImage(widget.friend['avatar_url']) : null,
-              child: widget.friend['avatar_url'] == null ? Icon(Icons.person, size: 16, color: Colors.grey[600]) : null,
-            ))
-          else if (!isMe) const SizedBox(width: 40),
-          Flexible(child: Column(
-            crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: CircleAvatar(
+                  radius: 16,
+                  backgroundColor: Colors.grey[200],
+                  backgroundImage: widget.friend['avatar_url'] != null
+                      ? NetworkImage(widget.friend['avatar_url'])
+                      : null,
+                  child: widget.friend['avatar_url'] == null
+                      ? Icon(Icons.person, size: 16, color: Colors.grey[600])
+                      : null,
+                ))
+          else if (!isMe)
+            const SizedBox(width: 40),
+          Flexible(
+              child: Column(
+            crossAxisAlignment:
+                isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
             children: [
               Container(
-                constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+                constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.75),
                 decoration: BoxDecoration(
-                  color: isMe ? colors.primary : colors.surfaceContainerHighest.withOpacity(0.7),
+                  color: isMe
+                      ? colors.primary
+                      : colors.surfaceContainerHighest.withOpacity(0.7),
                   borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(20), topRight: const Radius.circular(20),
-                    bottomLeft: Radius.circular(isMe ? 20 : 4), bottomRight: Radius.circular(isMe ? 4 : 20),
+                    topLeft: const Radius.circular(20),
+                    topRight: const Radius.circular(20),
+                    bottomLeft: Radius.circular(isMe ? 20 : 4),
+                    bottomRight: Radius.circular(isMe ? 4 : 20),
                   ),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 6, offset: const Offset(0, 2))],
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withOpacity(0.06),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2))
+                  ],
                 ),
-                child: _buildBubbleContent(messageType, content, fileUrl, fileName, fileSize, isMe, colors),
+                child: _buildBubbleContent(messageType, content, fileUrl,
+                    fileName, fileSize, isMe, colors),
               ),
               if (timestamp != null)
-                Padding(padding: const EdgeInsets.only(top: 4, left: 8, right: 8), child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Text(timeago.format(timestamp), style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-                  if (isMe) ...[
-                    const SizedBox(width: 4),
-                    Icon(isRead ? Icons.done_all_rounded : Icons.done_rounded, size: 14,
-                      color: isRead ? Colors.lightBlueAccent : Colors.grey[500]),
-                  ],
-                ])),
+                Padding(
+                    padding: const EdgeInsets.only(top: 4, left: 8, right: 8),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text(timeago.format(timestamp),
+                          style:
+                              TextStyle(fontSize: 11, color: Colors.grey[500])),
+                      if (isMe) ...[
+                        const SizedBox(width: 4),
+                        Icon(
+                            isRead
+                                ? Icons.done_all_rounded
+                                : Icons.done_rounded,
+                            size: 14,
+                            color: isRead
+                                ? Colors.lightBlueAccent
+                                : Colors.grey[500]),
+                      ],
+                    ])),
             ],
           )),
         ],
@@ -549,53 +772,99 @@ class _MessageScreenState extends State<MessageScreen> with TickerProviderStateM
     );
   }
 
-  Widget _buildBubbleContent(String type, String content, String? fileUrl, String fileName, int? fileSize, bool isMe, ColorScheme colors) {
+  Widget _buildBubbleContent(String type, String content, String? fileUrl,
+      String fileName, int? fileSize, bool isMe, ColorScheme colors) {
     switch (type) {
       case 'image':
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           ClipRRect(
             borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(20), topRight: const Radius.circular(20),
-              bottomLeft: Radius.circular(content.isNotEmpty ? 0 : (isMe ? 20 : 4)),
-              bottomRight: Radius.circular(content.isNotEmpty ? 0 : (isMe ? 4 : 20)),
+              topLeft: const Radius.circular(20),
+              topRight: const Radius.circular(20),
+              bottomLeft:
+                  Radius.circular(content.isNotEmpty ? 0 : (isMe ? 20 : 4)),
+              bottomRight:
+                  Radius.circular(content.isNotEmpty ? 0 : (isMe ? 4 : 20)),
             ),
-            child: Image.network(fileUrl!, width: 240, fit: BoxFit.cover,
+            child: Image.network(
+              fileUrl!,
+              width: 240,
+              fit: BoxFit.cover,
               loadingBuilder: (ctx, child, progress) {
                 if (progress == null) return child;
-                return Container(width: 240, height: 180, color: Colors.grey[200],
-                  child: Center(child: CircularProgressIndicator(strokeWidth: 2,
-                    value: progress.expectedTotalBytes != null ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes! : null)));
+                return Container(
+                    width: 240,
+                    height: 180,
+                    color: Colors.grey[200],
+                    child: Center(
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            value: progress.expectedTotalBytes != null
+                                ? progress.cumulativeBytesLoaded /
+                                    progress.expectedTotalBytes!
+                                : null)));
               },
-              errorBuilder: (ctx, err, stack) => Container(width: 240, height: 100,
-                color: Colors.grey[200], child: const Center(child: Icon(Icons.broken_image_rounded, color: Colors.grey))),
+              errorBuilder: (ctx, err, stack) => Container(
+                  width: 240,
+                  height: 100,
+                  color: Colors.grey[200],
+                  child: const Center(
+                      child: Icon(Icons.broken_image_rounded,
+                          color: Colors.grey))),
             ),
           ),
           if (content.isNotEmpty)
-            Padding(padding: const EdgeInsets.all(12), child: Text(content, style: TextStyle(
-              color: isMe ? Colors.white : colors.onSurface, fontSize: 14, height: 1.4))),
+            Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(content,
+                    style: TextStyle(
+                        color: isMe ? Colors.white : colors.onSurface,
+                        fontSize: 14,
+                        height: 1.4))),
         ]);
       case 'file':
         return Padding(
           padding: const EdgeInsets.all(12),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Container(
-              width: 42, height: 42,
-              decoration: BoxDecoration(color: (isMe ? Colors.white : colors.primary).withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
-              child: Icon(_getFileIcon(fileName), size: 22, color: isMe ? Colors.white : colors.primary),
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                  color:
+                      (isMe ? Colors.white : colors.primary).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(10)),
+              child: Icon(_getFileIcon(fileName),
+                  size: 22, color: isMe ? Colors.white : colors.primary),
             ),
             const SizedBox(width: 10),
-            Flexible(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(fileName, style: TextStyle(color: isMe ? Colors.white : colors.onSurface, fontSize: 14, fontWeight: FontWeight.w500),
-                maxLines: 1, overflow: TextOverflow.ellipsis),
-              if (fileSize != null)
-                Text(_formatFileSize(fileSize), style: TextStyle(color: (isMe ? Colors.white : Colors.grey[600])!.withOpacity(0.7), fontSize: 12)),
-            ])),
+            Flexible(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text(fileName,
+                      style: TextStyle(
+                          color: isMe ? Colors.white : colors.onSurface,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                  if (fileSize != null)
+                    Text(_formatFileSize(fileSize),
+                        style: TextStyle(
+                            color: (isMe ? Colors.white : Colors.grey[600])!
+                                .withOpacity(0.7),
+                            fontSize: 12)),
+                ])),
           ]),
         );
       default:
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Text(content, style: TextStyle(color: isMe ? Colors.white : colors.onSurface, fontSize: 15, height: 1.4)),
+          child: Text(content,
+              style: TextStyle(
+                  color: isMe ? Colors.white : colors.onSurface,
+                  fontSize: 15,
+                  height: 1.4)),
         );
     }
   }
@@ -603,13 +872,25 @@ class _MessageScreenState extends State<MessageScreen> with TickerProviderStateM
   IconData _getFileIcon(String name) {
     final ext = name.split('.').last.toLowerCase();
     switch (ext) {
-      case 'pdf': return Icons.picture_as_pdf_rounded;
-      case 'doc': case 'docx': return Icons.description_rounded;
-      case 'xls': case 'xlsx': return Icons.table_chart_rounded;
-      case 'zip': case 'rar': return Icons.folder_zip_rounded;
-      case 'mp3': case 'wav': return Icons.audiotrack_rounded;
-      case 'mp4': case 'mov': return Icons.videocam_rounded;
-      default: return Icons.insert_drive_file_rounded;
+      case 'pdf':
+        return Icons.picture_as_pdf_rounded;
+      case 'doc':
+      case 'docx':
+        return Icons.description_rounded;
+      case 'xls':
+      case 'xlsx':
+        return Icons.table_chart_rounded;
+      case 'zip':
+      case 'rar':
+        return Icons.folder_zip_rounded;
+      case 'mp3':
+      case 'wav':
+        return Icons.audiotrack_rounded;
+      case 'mp4':
+      case 'mov':
+        return Icons.videocam_rounded;
+      default:
+        return Icons.insert_drive_file_rounded;
     }
   }
 
