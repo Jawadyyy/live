@@ -6,7 +6,6 @@ class MessageService {
   final _supabase = Supabase.instance.client;
   static const _storageBucket = 'chat-attachments';
 
-  // Send a text message
   Future<void> sendMessage({
     required String receiverId,
     required String content,
@@ -17,7 +16,6 @@ class MessageService {
   }) async {
     final currentUserId = _supabase.auth.currentUser?.id;
     if (currentUserId == null) throw Exception('User not authenticated');
-
     await _supabase.from('messages').insert({
       'sender_id': currentUserId,
       'receiver_id': receiverId,
@@ -30,68 +28,46 @@ class MessageService {
     });
   }
 
-  // Upload a file to Supabase Storage and return the public URL
-  Future<Map<String, dynamic>> uploadFile({
-    required File file,
-    required String receiverId,
-  }) async {
+  Future<Map<String, dynamic>> uploadFile(
+      {required File file, required String receiverId}) async {
     final currentUserId = _supabase.auth.currentUser?.id;
     if (currentUserId == null) throw Exception('User not authenticated');
-
     final fileName = p.basename(file.path);
     final fileExt = p.extension(file.path).toLowerCase();
     final fileSize = await file.length();
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-
-    // Create a unique path: senderId/receiverId/timestamp_filename
-    final storagePath = '$currentUserId/$receiverId/${timestamp}_$fileName';
-
-    // Upload to Supabase Storage
+    final storagePath =
+        '$currentUserId/$receiverId/${DateTime.now().millisecondsSinceEpoch}_$fileName';
     await _supabase.storage.from(_storageBucket).upload(
           storagePath,
           file,
-          fileOptions: FileOptions(
-            contentType: _getMimeType(fileExt),
-          ),
+          fileOptions: FileOptions(contentType: _getMimeType(fileExt)),
         );
-
-    // Get the public URL
-    final publicUrl =
-        _supabase.storage.from(_storageBucket).getPublicUrl(storagePath);
-
-    // Determine message type from extension
-    final isImage = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']
-        .contains(fileExt);
-
+    final isImage =
+        ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'].contains(fileExt);
     return {
-      'file_url': publicUrl,
+      'file_url':
+          _supabase.storage.from(_storageBucket).getPublicUrl(storagePath),
       'file_name': fileName,
       'file_size': fileSize,
       'message_type': isImage ? 'image' : 'file',
     };
   }
 
-  // Send a file message (upload + send in one call)
-  Future<void> sendFileMessage({
-    required String receiverId,
-    required File file,
-    String? caption,
-  }) async {
-    final uploadResult = await uploadFile(file: file, receiverId: receiverId);
-
+  Future<void> sendFileMessage(
+      {required String receiverId, required File file, String? caption}) async {
+    final r = await uploadFile(file: file, receiverId: receiverId);
     await sendMessage(
       receiverId: receiverId,
       content: caption ?? '',
-      messageType: uploadResult['message_type'],
-      fileUrl: uploadResult['file_url'],
-      fileName: uploadResult['file_name'],
-      fileSize: uploadResult['file_size'],
+      messageType: r['message_type'],
+      fileUrl: r['file_url'],
+      fileName: r['file_name'],
+      fileSize: r['file_size'],
     );
   }
 
-  // Get MIME type from file extension
-  String _getMimeType(String extension) {
-    switch (extension) {
+  String _getMimeType(String ext) {
+    switch (ext) {
       case '.jpg':
       case '.jpeg':
         return 'image/jpeg';
@@ -122,43 +98,48 @@ class MessageService {
     }
   }
 
-  // Get messages stream between two users
+  // Used by MessageScreen — streams full conversation
   Stream<List<Map<String, dynamic>>> getMessagesStream(String otherUserId) {
     final currentUserId = _supabase.auth.currentUser?.id;
-    if (currentUserId == null) {
-      return Stream.value([]);
-    }
-
-    // Stream all messages and filter in real-time
+    if (currentUserId == null) return Stream.value([]);
     return _supabase
         .from('messages')
         .stream(primaryKey: ['id'])
         .order('created_at', ascending: true)
-        .map((data) {
-          // Filter messages between current user and other user
-          return data.where((message) {
-            final senderId = message['sender_id'];
-            final receiverId = message['receiver_id'];
+        .map((data) => data.where((m) {
+              final s = m['sender_id'], r = m['receiver_id'];
+              return (s == currentUserId && r == otherUserId) ||
+                  (s == otherUserId && r == currentUserId);
+            }).toList());
+  }
 
-            return (senderId == currentUserId && receiverId == otherUserId) ||
-                (senderId == otherUserId && receiverId == currentUserId);
+  // Used by ChatScreen list items — streams just the last message
+  Stream<Map<String, dynamic>?> getLastMessageStream(String otherUserId) {
+    final currentUserId = _supabase.auth.currentUser?.id;
+    if (currentUserId == null) return Stream.value(null);
+    return _supabase
+        .from('messages')
+        .stream(primaryKey: ['id'])
+        .order('created_at', ascending: false)
+        .map((data) {
+          final conv = data.where((m) {
+            final s = m['sender_id'], r = m['receiver_id'];
+            return (s == currentUserId && r == otherUserId) ||
+                (s == otherUserId && r == currentUserId);
           }).toList();
+          return conv.isNotEmpty ? conv.first : null;
         });
   }
 
-  // Mark message as read
   Future<void> markAsRead(String messageId) async {
     await _supabase
         .from('messages')
-        .update({'is_read': true})
-        .eq('id', messageId);
+        .update({'is_read': true}).eq('id', messageId);
   }
 
-  // Mark all messages from a user as read
   Future<void> markAllAsRead(String senderId) async {
     final currentUserId = _supabase.auth.currentUser?.id;
     if (currentUserId == null) return;
-
     await _supabase
         .from('messages')
         .update({'is_read': true})
@@ -167,48 +148,36 @@ class MessageService {
         .eq('is_read', false);
   }
 
-  // Delete a message
   Future<void> deleteMessage(String messageId) async {
     await _supabase.from('messages').delete().eq('id', messageId);
   }
 
-  // Get unread message count from a specific user
+  // Kept for any legacy usage
   Future<int> getUnreadCount(String senderId) async {
     final currentUserId = _supabase.auth.currentUser?.id;
     if (currentUserId == null) return 0;
-
-    final response = await _supabase
+    final r = await _supabase
         .from('messages')
         .select()
         .eq('sender_id', senderId)
         .eq('receiver_id', currentUserId)
         .eq('is_read', false);
-
-    return response.length;
+    return r.length;
   }
 
-  // Get last message with a user
   Future<Map<String, dynamic>?> getLastMessage(String otherUserId) async {
     final currentUserId = _supabase.auth.currentUser?.id;
     if (currentUserId == null) return null;
-
-    // Fetch messages between the two users
-    final response = await _supabase
+    final r = await _supabase
         .from('messages')
         .select()
         .order('created_at', ascending: false)
-        .limit(100); // Get recent messages to filter
-
-    // Filter manually for the conversation
-    final conversation =
-        response.where((message) {
-          final senderId = message['sender_id'];
-          final receiverId = message['receiver_id'];
-
-          return (senderId == currentUserId && receiverId == otherUserId) ||
-              (senderId == otherUserId && receiverId == currentUserId);
-        }).toList();
-
-    return conversation.isNotEmpty ? conversation.first : null;
+        .limit(100);
+    final conv = r.where((m) {
+      final s = m['sender_id'], rv = m['receiver_id'];
+      return (s == currentUserId && rv == otherUserId) ||
+          (s == otherUserId && rv == currentUserId);
+    }).toList();
+    return conv.isNotEmpty ? conv.first : null;
   }
 }
