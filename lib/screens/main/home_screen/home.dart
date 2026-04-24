@@ -154,22 +154,21 @@ class _PostCard extends StatelessWidget {
   Future<void> _handleDelete(BuildContext context) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            title: const Text("Delete Post"),
-            content: const Text("Are you sure you want to delete this post?"),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text("Cancel"),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text("Delete"),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: const Text("Delete Post"),
+        content: const Text("Are you sure you want to delete this post?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancel"),
           ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text("Delete"),
+          ),
+        ],
+      ),
     );
 
     if (confirm == true) {
@@ -192,12 +191,11 @@ class _PostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Map<String, dynamic>?>(
-      future:
-          Supabase.instance.client
-              .from('users')
-              .select('username, avatar_url')
-              .eq('id', post['user_id'])
-              .maybeSingle(),
+      future: Supabase.instance.client
+          .from('users')
+          .select('username, avatar_url')
+          .eq('id', post['user_id'])
+          .maybeSingle(),
       builder: (context, userSnap) {
         final user = userSnap.data ?? {};
         final username = user['username'] ?? "Unknown";
@@ -288,10 +286,9 @@ class _PostHeader extends StatelessWidget {
           radius: 23,
           backgroundColor: Colors.grey[200],
           backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl!) : null,
-          child:
-              avatarUrl == null
-                  ? Icon(Icons.person, color: Colors.grey[600])
-                  : null,
+          child: avatarUrl == null
+              ? Icon(Icons.person, color: Colors.grey[600])
+              : null,
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -301,17 +298,17 @@ class _PostHeader extends StatelessWidget {
               Text(
                 username,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
-                ),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
               ),
               if (timeLabel.isNotEmpty)
                 Text(
                   timeLabel,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[500],
-                    fontSize: 12,
-                  ),
+                        color: Colors.grey[500],
+                        fontSize: 12,
+                      ),
                 ),
             ],
           ),
@@ -325,11 +322,10 @@ class _PostHeader extends StatelessWidget {
                 onDelete();
               }
             },
-            itemBuilder:
-                (context) => const [
-                  PopupMenuItem(value: 'edit', child: Text("Edit")),
-                  PopupMenuItem(value: 'delete', child: Text("Delete")),
-                ],
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: 'edit', child: Text("Edit")),
+              PopupMenuItem(value: 'delete', child: Text("Delete")),
+            ],
           ),
       ],
     );
