@@ -17,7 +17,8 @@ class CustomBottomNavBar extends StatefulWidget {
 
 class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
   int _selectedIndex = 0;
-  bool _isShowingCallSheet = false; // prevents duplicate sheets
+  bool _isShowingCallSheet = false;
+  RealtimeChannel? _callChannel;
 
   final List<Widget> _screens = [
     const HomeScreen(),
@@ -32,37 +33,43 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
     _listenForIncomingCalls();
   }
 
+  @override
+  void dispose() {
+    _callChannel?.unsubscribe();
+    super.dispose();
+  }
+
   void _listenForIncomingCalls() {
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
     if (currentUserId == null) return;
 
-    Supabase.instance.client
-        .from('calls')
-        .stream(primaryKey: ['id'])
-        .order('created_at', ascending: false)
-        .listen((calls) async {
-          if (!mounted || _isShowingCallSheet) return;
+    _callChannel = Supabase.instance.client
+        .channel('incoming_calls')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'calls',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'receiver_id',
+            value: currentUserId,
+          ),
+          callback: (payload) async {
+            final call = payload.newRecord;
+            if (call['status'] != 'ringing') return;
+            if (!mounted || _isShowingCallSheet) return;
 
-          final incoming = calls
-              .where((c) =>
-                  c['receiver_id'] == currentUserId && c['status'] == 'ringing')
-              .toList();
+            final callerProfile = await Supabase.instance.client
+                .from('users')
+                .select('username, avatar_url')
+                .eq('id', call['caller_id'])
+                .maybeSingle();
 
-          if (incoming.isEmpty) return;
-
-          final call = incoming.first;
-
-          // Fetch caller's profile so we can show their username
-          final callerProfile = await Supabase.instance.client
-              .from('users')
-              .select('username, avatar_url')
-              .eq('id', call['caller_id'])
-              .maybeSingle();
-
-          if (!mounted || _isShowingCallSheet) return;
-
-          _showIncomingCallSheet(call, callerProfile);
-        });
+            if (!mounted || _isShowingCallSheet) return;
+            _showIncomingCallSheet(call, callerProfile);
+          },
+        )
+        .subscribe();
   }
 
   void _showIncomingCallSheet(
@@ -89,7 +96,6 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Handle bar
             Container(
               width: 40,
               height: 4,
@@ -99,8 +105,6 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-
-            // Call type label
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
@@ -118,18 +122,12 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
                   const SizedBox(width: 6),
                   Text(
                     'Incoming ${call['call_type']} call',
-                    style: const TextStyle(
-                      color: Colors.white60,
-                      fontSize: 13,
-                    ),
+                    style: const TextStyle(color: Colors.white60, fontSize: 13),
                   ),
                 ],
               ),
             ),
-
             const SizedBox(height: 20),
-
-            // Avatar
             CircleAvatar(
               radius: 42,
               backgroundImage:
@@ -146,9 +144,7 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
                     )
                   : null,
             ),
-
             const SizedBox(height: 14),
-
             Text(
               username,
               style: const TextStyle(
@@ -157,14 +153,10 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-
             const SizedBox(height: 32),
-
-            // Decline / Accept buttons
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                // Decline
                 _callActionButton(
                   icon: Icons.call_end_rounded,
                   label: 'Decline',
@@ -175,8 +167,6 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
                     await AgoraCallService().declineCall(call['id']);
                   },
                 ),
-
-                // Accept
                 _callActionButton(
                   icon: isVideo ? Icons.videocam_rounded : Icons.call_rounded,
                   label: 'Accept',
@@ -204,13 +194,11 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
                 ),
               ],
             ),
-
             const SizedBox(height: 8),
           ],
         ),
       ),
     ).whenComplete(() {
-      // Reset flag if user somehow dismisses it
       if (mounted) setState(() => _isShowingCallSheet = false);
     });
   }

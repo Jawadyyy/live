@@ -8,35 +8,33 @@ class AgoraCallService {
   RtcEngine? _engine;
   final _supabase = Supabase.instance.client;
 
+  Future<String> _fetchToken(String channelName) async {
+    final response = await _supabase.functions.invoke(
+      'agora-token',
+      body: {'channelName': channelName, 'uid': 0},
+    );
+    if (response.data == null) throw Exception('Failed to get token');
+    return response.data['token'] as String;
+  }
+
   Future<void> initialize() async {
-    // Request permissions first and wait for result
     final statuses = await [Permission.microphone, Permission.camera].request();
-
-    final micGranted = statuses[Permission.microphone]?.isGranted ?? false;
-    final camGranted = statuses[Permission.camera]?.isGranted ?? false;
-
-    debugPrint('Mic permission: $micGranted | Camera permission: $camGranted');
-
-    if (!micGranted) throw Exception('Microphone permission denied');
+    if (!(statuses[Permission.microphone]?.isGranted ?? false)) {
+      throw Exception('Microphone permission denied');
+    }
 
     _engine = createAgoraRtcEngine();
-
     await _engine!.initialize(RtcEngineContext(
       appId: appId,
       channelProfile: ChannelProfileType.channelProfileCommunication,
     ));
-
-    // Wait for engine to be fully ready — critical fix for -3 error
     await Future.delayed(const Duration(milliseconds: 500));
-
     await _engine!.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
     await _engine!.enableAudio();
     await _engine!.setAudioProfile(
       profile: AudioProfileType.audioProfileDefault,
       scenario: AudioScenarioType.audioScenarioChatroom,
     );
-
-    debugPrint('Agora engine initialized successfully');
   }
 
   Future<Map<String, dynamic>> initiateCall({
@@ -46,8 +44,6 @@ class AgoraCallService {
     final callerId = _supabase.auth.currentUser!.id;
     final channelName =
         'ch_${callerId.substring(0, 6)}_${receiverId.substring(0, 6)}_${DateTime.now().millisecondsSinceEpoch}';
-
-    debugPrint('Initiating $callType call on channel: $channelName');
 
     return await _supabase
         .from('calls')
@@ -62,11 +58,14 @@ class AgoraCallService {
         .single();
   }
 
-  Future<void> joinChannel(
-      {required String channelName, required bool isVideo}) async {
+  Future<void> joinChannel({
+    required String channelName,
+    required bool isVideo,
+  }) async {
     if (_engine == null) throw Exception('Engine not initialized');
 
-    debugPrint('Joining channel: $channelName | isVideo: $isVideo');
+    final token = await _fetchToken(channelName);
+    debugPrint('Token fetched successfully');
 
     if (isVideo) {
       await _engine!.enableVideo();
@@ -76,7 +75,7 @@ class AgoraCallService {
     }
 
     await _engine!.joinChannel(
-      token: '',
+      token: token,
       channelId: channelName,
       uid: 0,
       options: ChannelMediaOptions(
@@ -90,8 +89,10 @@ class AgoraCallService {
     );
   }
 
-  Future<void> leaveAndUpdateStatus(
-      {required String callId, required String status}) async {
+  Future<void> leaveAndUpdateStatus({
+    required String callId,
+    required String status,
+  }) async {
     await _engine?.leaveChannel();
     await Future.delayed(const Duration(milliseconds: 200));
     await _supabase.from('calls').update({
