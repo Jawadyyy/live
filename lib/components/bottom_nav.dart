@@ -54,7 +54,7 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
 
           // Fetch caller's profile so we can show their username
           final callerProfile = await Supabase.instance.client
-              .from('profiles')
+              .from('users')
               .select('username, avatar_url')
               .eq('id', call['caller_id'])
               .maybeSingle();
