@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:live/screens/main/post_screen/controller/create_post_controller.dart';
+import 'package:live/screens/main/home_screen/post_screen/controller/create_post_controller.dart';
 import 'package:provider/provider.dart';
 
 class CreatePostScreen extends StatelessWidget {
@@ -61,28 +61,27 @@ class _CreatePostView extends StatelessWidget {
             // Image Preview / Picker
             GestureDetector(
               onTap: controller.pickImage,
-              child:
-                  controller.selectedImage != null
-                      ? ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.file(
-                          File(controller.selectedImage!.path),
-                          height: 200,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
-                      )
-                      : (controller.existingPost != null &&
+              child: controller.selectedImage != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Image.file(
+                        File(controller.selectedImage!.path),
+                        height: 200,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : (controller.existingPost != null &&
                           controller.existingPost!['image_url'] != null)
                       ? ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.network(
-                          controller.existingPost!['image_url'],
-                          height: 200,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
-                      )
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.network(
+                            controller.existingPost!['image_url'],
+                            height: 200,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                        )
                       : const DottedBorderContainer(),
             ),
           ],
@@ -100,27 +99,25 @@ class _CreatePostView extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
-            onPressed:
-                controller.isPosting
-                    ? null
-                    : () async {
-                      final error = await controller.savePost();
-                      if (error == null) {
-                        Navigator.pop(context);
-                      } else {
-                        ScaffoldMessenger.of(
-                          context,
-                        ).showSnackBar(SnackBar(content: Text(error)));
-                      }
-                    },
-            icon:
-                controller.isPosting
-                    ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                    : const Icon(Icons.send, size: 22),
+            onPressed: controller.isPosting
+                ? null
+                : () async {
+                    final error = await controller.savePost();
+                    if (error == null) {
+                      Navigator.pop(context);
+                    } else {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text(error)));
+                    }
+                  },
+            icon: controller.isPosting
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.send, size: 22),
             label: Text(
               controller.existingPost != null ? "Update" : "Post",
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),

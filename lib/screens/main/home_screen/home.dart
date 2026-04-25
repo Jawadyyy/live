@@ -9,7 +9,7 @@ import 'package:live/screens/theme/theme_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import 'package:live/screens/main/post_screen/create_post_screen.dart';
+import 'package:live/screens/main/home_screen/post_screen/create_post_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,10 +18,16 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with AutomaticKeepAliveClientMixin {
   late final AuthService _authService;
   late final PostService _postService;
   late final SupabaseClient _supabaseClient;
+  late final Stream<List<Map<String, dynamic>>> _postsStream;
+  List<Map<String, dynamic>> _cachedPosts = [];
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -29,10 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _authService = AuthService();
     _postService = PostService();
     _supabaseClient = Supabase.instance.client;
-  }
-
-  Stream<List<Map<String, dynamic>>> _postsStream() {
-    return _supabaseClient
+    _postsStream = _supabaseClient
         .from('posts')
         .stream(primaryKey: ['id'])
         .order('created_at', ascending: false)
@@ -44,11 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
       MaterialPageRoute(builder: (_) => const CreatePostScreen()),
     );
-
-    // Only refresh if post was created/edited
-    if (result == true && mounted) {
-      setState(() {});
-    }
+    if (result == true && mounted) setState(() {});
   }
 
   Future<void> _toggleTheme() async {
@@ -58,6 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final themeProvider = context.watch<ThemeProvider>();
     final colorScheme = Theme.of(context).colorScheme;
     final currentUser = _supabaseClient.auth.currentUser;
@@ -70,26 +70,33 @@ class _HomeScreenState extends State<HomeScreen> {
         onToggleDarkMode: _toggleTheme,
       ),
       body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: _postsStream(),
+        stream: _postsStream,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          // Cache data whenever new data arrives
+          if (snapshot.hasData) {
+            _cachedPosts = snapshot.data!;
+          }
+
+          // Show loading only on very first load with no cache
+          if (snapshot.connectionState == ConnectionState.waiting &&
+              _cachedPosts.isEmpty) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (snapshot.hasError) {
+          // Show error only if no cache to fall back on
+          if (snapshot.hasError && _cachedPosts.isEmpty) {
             return _ErrorState(error: snapshot.error.toString());
           }
 
-          final posts = snapshot.data ?? [];
-          if (posts.isEmpty) {
+          if (_cachedPosts.isEmpty) {
             return const _EmptyState();
           }
 
           return ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: posts.length,
+            itemCount: _cachedPosts.length,
             itemBuilder: (context, index) {
-              final post = posts[index];
+              final post = _cachedPosts[index];
               return _PostCard(
                 key: ValueKey(post['id']),
                 post: post,
@@ -145,10 +152,7 @@ class _PostCard extends StatelessWidget {
       context,
       MaterialPageRoute(builder: (_) => CreatePostScreen(existingPost: post)),
     );
-
-    if (result == true) {
-      onPostUpdated();
-    }
+    if (result == true) onPostUpdated();
   }
 
   Future<void> _handleDelete(BuildContext context) async {
@@ -180,9 +184,8 @@ class _PostCard extends StatelessWidget {
         onPostUpdated();
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Failed to delete post: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to delete post: $e')));
         }
       }
     }
@@ -221,9 +224,8 @@ class _PostCard extends StatelessWidget {
           child: Card(
             elevation: 0,
             margin: EdgeInsets.zero,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             color: isDarkMode ? colorScheme.surface : Colors.white,
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -335,7 +337,6 @@ class _PostHeader extends StatelessWidget {
 // ==================== POST CONTENT ====================
 class _PostContent extends StatelessWidget {
   final String content;
-
   const _PostContent({required this.content});
 
   @override
@@ -344,9 +345,10 @@ class _PostContent extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: Text(
         content,
-        style: Theme.of(
-          context,
-        ).textTheme.bodyLarge?.copyWith(fontSize: 15, height: 1.4),
+        style: Theme.of(context)
+            .textTheme
+            .bodyLarge
+            ?.copyWith(fontSize: 15, height: 1.4),
       ),
     );
   }
@@ -355,7 +357,6 @@ class _PostContent extends StatelessWidget {
 // ==================== POST IMAGE ====================
 class _PostImage extends StatelessWidget {
   final String imageUrl;
-
   const _PostImage({required this.imageUrl});
 
   @override
@@ -376,13 +377,11 @@ class _PostImage extends StatelessWidget {
               child: const Center(child: CircularProgressIndicator()),
             );
           },
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              height: 200,
-              color: Colors.grey[200],
-              child: const Icon(Icons.error),
-            );
-          },
+          errorBuilder: (context, error, stackTrace) => Container(
+            height: 200,
+            color: Colors.grey[200],
+            child: const Icon(Icons.error),
+          ),
         ),
       ),
     );
@@ -438,71 +437,47 @@ class _LikeButtonState extends State<_LikeButton>
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-
     _scaleAnimation = TweenSequence<double>([
       TweenSequenceItem(
-        tween: Tween<double>(
-          begin: 1.0,
-          end: 1.4,
-        ).chain(CurveTween(curve: Curves.easeOut)),
+        tween: Tween<double>(begin: 1.0, end: 1.4)
+            .chain(CurveTween(curve: Curves.easeOut)),
         weight: 50,
       ),
       TweenSequenceItem(
-        tween: Tween<double>(
-          begin: 1.4,
-          end: 1.0,
-        ).chain(CurveTween(curve: Curves.easeIn)),
+        tween: Tween<double>(begin: 1.4, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeIn)),
         weight: 50,
       ),
     ]).animate(_animationController);
-
     _checkLikeStatus();
   }
 
   Future<void> _checkLikeStatus() async {
     try {
-      final isLiked = await widget.postService.isLikedByCurrentUser(
-        widget.postId,
-      );
-      if (mounted) {
+      final isLiked =
+          await widget.postService.isLikedByCurrentUser(widget.postId);
+      if (mounted)
         setState(() {
           _isLiked = isLiked;
           _isLoading = false;
         });
-      }
     } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _handleLike() async {
     final previousState = _isLiked;
-
     try {
-      // Optimistic UI update
       setState(() => _isLiked = !_isLiked);
-
-      // Play animation only when liking
-      if (_isLiked) {
-        _animationController.forward(from: 0);
-      }
-
-      // Actually toggle the like
+      if (_isLiked) _animationController.forward(from: 0);
       final newLikeState = await widget.postService.toggleLike(widget.postId);
-
-      // Update state based on actual result
-      if (mounted) {
-        setState(() => _isLiked = newLikeState);
-      }
+      if (mounted) setState(() => _isLiked = newLikeState);
     } catch (e) {
-      // Revert on error
       if (mounted) {
         setState(() => _isLiked = previousState);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
       }
     }
   }
@@ -519,14 +494,11 @@ class _LikeButtonState extends State<_LikeButton>
       return TextButton.icon(
         onPressed: null,
         icon: const SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-        label: Text(
-          'Like',
-          style: TextStyle(color: Colors.grey[600], fontSize: 12),
-        ),
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2)),
+        label: Text('Like',
+            style: TextStyle(color: Colors.grey[600], fontSize: 12)),
       );
     }
 
@@ -534,7 +506,6 @@ class _LikeButtonState extends State<_LikeButton>
       stream: widget.postService.likesCountStream(widget.postId),
       builder: (context, countSnap) {
         final count = countSnap.data ?? 0;
-
         return TextButton.icon(
           onPressed: _handleLike,
           icon: ScaleTransition(
@@ -577,7 +548,6 @@ class _CommentButton extends StatelessWidget {
       stream: postService.commentsCountStream(postId),
       builder: (context, countSnap) {
         final count = countSnap.data ?? 0;
-
         return TextButton.icon(
           onPressed: () {
             Navigator.push(
@@ -587,11 +557,8 @@ class _CommentButton extends StatelessWidget {
               ),
             );
           },
-          icon: Icon(
-            Icons.mode_comment_outlined,
-            size: 20,
-            color: Colors.grey[600],
-          ),
+          icon: Icon(Icons.mode_comment_outlined,
+              size: 20, color: Colors.grey[600]),
           label: Text(
             count > 0 ? count.toString() : 'Comment',
             style: TextStyle(color: Colors.grey[600], fontSize: 12),
@@ -614,15 +581,11 @@ class _EmptyState extends StatelessWidget {
         children: [
           Icon(Icons.article_outlined, size: 64, color: Colors.grey[400]),
           const SizedBox(height: 16),
-          Text(
-            "No posts yet",
-            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-          ),
+          Text("No posts yet",
+              style: TextStyle(fontSize: 18, color: Colors.grey[600])),
           const SizedBox(height: 8),
-          Text(
-            "Be the first to share something!",
-            style: TextStyle(color: Colors.grey[500]),
-          ),
+          Text("Be the first to share something!",
+              style: TextStyle(color: Colors.grey[500])),
         ],
       ),
     );
@@ -632,7 +595,6 @@ class _EmptyState extends StatelessWidget {
 // ==================== ERROR STATE ====================
 class _ErrorState extends StatelessWidget {
   final String error;
-
   const _ErrorState({required this.error});
 
   @override
@@ -643,18 +605,14 @@ class _ErrorState extends StatelessWidget {
         children: [
           Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
           const SizedBox(height: 16),
-          Text(
-            "Something went wrong",
-            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-          ),
+          Text("Something went wrong",
+              style: TextStyle(fontSize: 18, color: Colors.grey[600])),
           const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Text(
-              error,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[500], fontSize: 12),
-            ),
+            child: Text(error,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey[500], fontSize: 12)),
           ),
         ],
       ),

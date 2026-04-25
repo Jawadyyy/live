@@ -10,11 +10,21 @@ import 'package:live/screens/main/controllers/friends_controller.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class ChatScreen extends StatelessWidget {
+class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
 
   @override
+  State<ChatScreen> createState() => _ChatScreenState();
+}
+
+class _ChatScreenState extends State<ChatScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     return ChangeNotifierProvider(
       create: (_) => FriendsController()..fetchFriends(),
       child: Scaffold(
@@ -33,7 +43,7 @@ class ChatScreen extends StatelessWidget {
             final theme = Theme.of(context);
             final isDarkMode = theme.brightness == Brightness.dark;
 
-            if (controller.isLoading) {
+            if (controller.isLoading && controller.friends.isEmpty) {
               return Center(
                 child: TweenAnimationBuilder(
                   duration: const Duration(milliseconds: 800),
@@ -85,21 +95,12 @@ class ChatScreen extends StatelessWidget {
               Expanded(
                 child: filtered.isEmpty
                     ? _NoResultsWidget(isDarkMode: isDarkMode, theme: theme)
-                    : AnimatedList(
-                        key: ValueKey(filtered.length),
+                    : ListView.builder(
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                        initialItemCount: filtered.length,
-                        itemBuilder: (context, index, animation) =>
-                            SlideTransition(
-                          position: animation.drive(Tween<Offset>(
-                            begin: const Offset(1, 0),
-                            end: Offset.zero,
-                          ).chain(CurveTween(curve: Curves.easeOutCubic))),
-                          child: FadeTransition(
-                            opacity: animation,
-                            child: _ChatListItem(
-                                friend: filtered[index], index: index),
-                          ),
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) => _ChatListItem(
+                          friend: filtered[index],
+                          index: index,
                         ),
                       ),
               ),
@@ -119,72 +120,60 @@ class _SearchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TweenAnimationBuilder(
-      duration: const Duration(milliseconds: 600),
-      tween: Tween<double>(begin: 0, end: 1),
-      builder: (context, double v, _) => Transform.translate(
-        offset: Offset(0, 20 * (1 - v)),
-        child: Opacity(
-          opacity: v,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(25),
-                gradient: LinearGradient(
-                    colors: isDarkMode
-                        ? [
-                            Colors.black.withOpacity(0.4),
-                            Colors.black.withOpacity(0.6)
-                          ]
-                        : [const Color(0xFFF3F0FF), const Color(0xFFEDE9FF)]),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF7C56E1).withOpacity(0.15),
-                    blurRadius: 15,
-                    offset: const Offset(0, 4),
-                  )
-                ],
-              ),
-              child: TextField(
-                onChanged: onChanged,
-                style: TextStyle(
-                  color: isDarkMode ? Colors.white : Colors.black87,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Search friends...',
-                  hintStyle: TextStyle(
-                    color: isDarkMode
-                        ? const Color(0xFFB0B0B0)
-                        : const Color(0xFF888888),
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  prefixIcon: Container(
-                    margin: const EdgeInsets.all(10),
-                    child: const Icon(Icons.search_rounded,
-                        color: Color(0xFF7C56E1), size: 22),
-                  ),
-                  filled: true,
-                  fillColor: Colors.transparent,
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(25),
-                    borderSide: BorderSide(
-                        color: const Color(0xFF7C56E1).withOpacity(0.3),
-                        width: 1.5),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(25),
-                    borderSide:
-                        const BorderSide(color: Color(0xFF7C56E1), width: 2),
-                  ),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                ),
-              ),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(25),
+          gradient: LinearGradient(
+              colors: isDarkMode
+                  ? [
+                      Colors.black.withOpacity(0.4),
+                      Colors.black.withOpacity(0.6)
+                    ]
+                  : [const Color(0xFFF3F0FF), const Color(0xFFEDE9FF)]),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF7C56E1).withOpacity(0.15),
+              blurRadius: 15,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: TextField(
+          onChanged: onChanged,
+          style: TextStyle(
+            color: isDarkMode ? Colors.white : Colors.black87,
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+          ),
+          decoration: InputDecoration(
+            hintText: 'Search friends...',
+            hintStyle: TextStyle(
+              color: isDarkMode
+                  ? const Color(0xFFB0B0B0)
+                  : const Color(0xFF888888),
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
             ),
+            prefixIcon: Container(
+              margin: const EdgeInsets.all(10),
+              child: const Icon(Icons.search_rounded,
+                  color: Color(0xFF7C56E1), size: 22),
+            ),
+            filled: true,
+            fillColor: Colors.transparent,
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(25),
+              borderSide: BorderSide(
+                  color: const Color(0xFF7C56E1).withOpacity(0.3), width: 1.5),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(25),
+              borderSide: const BorderSide(color: Color(0xFF7C56E1), width: 2),
+            ),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           ),
         ),
       ),
@@ -225,28 +214,21 @@ class _FriendCounter extends StatelessWidget {
             ),
           ),
           if (hasSearchQuery)
-            TweenAnimationBuilder(
-              duration: const Duration(milliseconds: 300),
-              tween: Tween<double>(begin: 0, end: 1),
-              builder: (context, double v, _) => Transform.scale(
-                scale: v,
-                child: GestureDetector(
-                  onTap: onClear,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF7C56E1).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Text('Clear',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF7C56E1),
-                        )),
-                  ),
+            GestureDetector(
+              onTap: onClear,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF7C56E1).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
                 ),
+                child: const Text('Clear',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF7C56E1),
+                    )),
               ),
             ),
         ],
@@ -263,78 +245,66 @@ class _EmptyStateWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: TweenAnimationBuilder(
-        duration: const Duration(milliseconds: 800),
-        tween: Tween<double>(begin: 0, end: 1),
-        builder: (context, double v, _) => Transform.scale(
-          scale: 0.8 + (0.2 * v),
-          child: Opacity(
-            opacity: v,
-            child: Container(
-              padding: const EdgeInsets.all(30),
-              margin: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: theme.cardColor,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withOpacity(0.1 * v),
-                      blurRadius: 15,
-                      offset: const Offset(0, 5))
-                ],
-              ),
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(colors: [
-                      const Color(0xFF7C56E1).withOpacity(0.1),
-                      const Color(0xFF7C56E1).withOpacity(0.05),
-                    ]),
-                  ),
-                  child: const Icon(Icons.people_outline,
-                      size: 50, color: Color(0xFF7C56E1)),
-                ),
-                const SizedBox(height: 24),
-                Text('No Friends Yet',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: theme.primaryColor,
-                      letterSpacing: 0.5,
-                    )),
-                const SizedBox(height: 12),
-                Text('Add friends to start chatting!',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        color: isDarkMode
-                            ? const Color(0xFFB0B0B0)
-                            : Colors.grey[600],
-                        fontSize: 14)),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: () => Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const SearchScreen())),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF7C56E1),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 12),
-                    elevation: 3,
-                  ),
-                  child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.person_add, size: 18),
-                    SizedBox(width: 8),
-                    Text('Find Friends'),
-                  ]),
-                ),
+      child: Container(
+        padding: const EdgeInsets.all(30),
+        margin: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: theme.cardColor,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 15,
+                offset: const Offset(0, 5))
+          ],
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(colors: [
+                const Color(0xFF7C56E1).withOpacity(0.1),
+                const Color(0xFF7C56E1).withOpacity(0.05),
               ]),
             ),
+            child: const Icon(Icons.people_outline,
+                size: 50, color: Color(0xFF7C56E1)),
           ),
-        ),
+          const SizedBox(height: 24),
+          Text('No Friends Yet',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: theme.primaryColor,
+                letterSpacing: 0.5,
+              )),
+          const SizedBox(height: 12),
+          Text('Add friends to start chatting!',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color:
+                      isDarkMode ? const Color(0xFFB0B0B0) : Colors.grey[600],
+                  fontSize: 14)),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const SearchScreen())),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF7C56E1),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              elevation: 3,
+            ),
+            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.person_add, size: 18),
+              SizedBox(width: 8),
+              Text('Find Friends'),
+            ]),
+          ),
+        ]),
       ),
     );
   }
@@ -348,42 +318,34 @@ class _NoResultsWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: TweenAnimationBuilder(
-        duration: const Duration(milliseconds: 500),
-        tween: Tween<double>(begin: 0, end: 1),
-        builder: (context, double v, _) => Transform.scale(
-          scale: v,
-          child: Container(
-            padding: const EdgeInsets.all(30),
-            margin: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: theme.cardColor,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5))
-              ],
-            ),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.search_off_rounded,
-                  size: 60, color: const Color(0xFF7C56E1).withOpacity(0.5)),
-              const SizedBox(height: 16),
-              Text('No results found',
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: theme.primaryColor)),
-              const SizedBox(height: 8),
-              Text('Try searching with a different name',
-                  style: TextStyle(
-                      color: isDarkMode
-                          ? const Color(0xFFB0B0B0)
-                          : Colors.grey[600])),
-            ]),
-          ),
+      child: Container(
+        padding: const EdgeInsets.all(30),
+        margin: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: theme.cardColor,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 15,
+                offset: const Offset(0, 5))
+          ],
         ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.search_off_rounded,
+              size: 60, color: const Color(0xFF7C56E1).withOpacity(0.5)),
+          const SizedBox(height: 16),
+          Text('No results found',
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: theme.primaryColor)),
+          const SizedBox(height: 8),
+          Text('Try searching with a different name',
+              style: TextStyle(
+                  color:
+                      isDarkMode ? const Color(0xFFB0B0B0) : Colors.grey[600])),
+        ]),
       ),
     );
   }
@@ -405,6 +367,7 @@ class _ChatListItemState extends State<_ChatListItem>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   late Stream<Map<String, dynamic>?> _stream;
+  Map<String, dynamic>? _cachedMessage;
 
   @override
   void initState() {
@@ -414,7 +377,6 @@ class _ChatListItemState extends State<_ChatListItem>
       vsync: this,
     )..repeat(reverse: true);
 
-    // Reuse cached stream so it's not recreated on every rebuild
     final friendId = widget.friend['id'] as String;
     _stream = _streamCache.putIfAbsent(
       friendId,
@@ -437,93 +399,95 @@ class _ChatListItemState extends State<_ChatListItem>
     return StreamBuilder<Map<String, dynamic>?>(
       stream: _stream,
       builder: (context, snap) {
-        final lastMessage = snap.data;
+        // Cache last message so it shows instantly on rebuild
+        if (snap.hasData) _cachedMessage = snap.data;
+
+        final lastMessage = _cachedMessage;
         final isNewChat = lastMessage == null;
         final isSentByMe = lastMessage?['sender_id'] == currentUserId;
-        final content = lastMessage?['content'] ?? 'Start a conversation';
+        final messageType = lastMessage?['message_type'] ?? 'text';
+        String content;
+        if (isNewChat) {
+          content = 'Start a conversation';
+        } else if (messageType == 'image') {
+          content = '📷 Photo';
+        } else if (messageType == 'file') {
+          content = '📎 ${lastMessage?['file_name'] ?? 'File'}';
+        } else {
+          content = lastMessage?['content'] ?? '';
+        }
+
         final timestamp = lastMessage?['created_at'] != null
             ? DateTime.parse(lastMessage!['created_at']).toLocal()
             : null;
         final hasUnread =
             !isNewChat && !isSentByMe && (lastMessage?['is_read'] == false);
 
-        return TweenAnimationBuilder(
-          duration: Duration(milliseconds: 400 + (widget.index * 50)),
-          tween: Tween<double>(begin: 0, end: 1),
-          builder: (context, double v, _) => Transform.translate(
-            offset: Offset(50 * (1 - v), 0),
-            child: Opacity(
-              opacity: v,
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) =>
-                                MessageScreen(friend: widget.friend))),
-                    borderRadius: BorderRadius.circular(20),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: hasUnread
-                              ? [
-                                  const Color(0xFF7C56E1).withOpacity(0.08),
-                                  const Color(0xFF7C56E1).withOpacity(0.04)
-                                ]
-                              : [
-                                  theme.cardColor,
-                                  isDarkMode
-                                      ? Colors.black.withOpacity(0.3)
-                                      : Colors.white
-                                ],
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: hasUnread
-                              ? const Color(0xFF7C56E1).withOpacity(0.3)
-                              : isDarkMode
-                                  ? Colors.grey.withOpacity(0.1)
-                                  : Colors.grey.withOpacity(0.05),
-                          width: 1.5,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black
-                                .withOpacity(isDarkMode ? 0.3 : 0.05),
-                            blurRadius: 15,
-                            offset: const Offset(0, 4),
-                            spreadRadius: 0.5,
-                          )
-                        ],
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          _buildAvatar(isDarkMode, theme),
-                          const SizedBox(width: 16),
-                          Expanded(
-                              child: _buildContent(
-                            theme,
-                            isDarkMode,
-                            content,
-                            isNewChat,
-                            timestamp,
-                            hasUnread,
-                            isSentByMe,
-                          )),
-                          const SizedBox(width: 12),
-                          _buildChevron(),
-                        ],
-                      ),
-                    ),
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => MessageScreen(friend: widget.friend))),
+              borderRadius: BorderRadius.circular(20),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: hasUnread
+                        ? [
+                            const Color(0xFF7C56E1).withOpacity(0.08),
+                            const Color(0xFF7C56E1).withOpacity(0.04)
+                          ]
+                        : [
+                            theme.cardColor,
+                            isDarkMode
+                                ? Colors.black.withOpacity(0.3)
+                                : Colors.white
+                          ],
                   ),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: hasUnread
+                        ? const Color(0xFF7C56E1).withOpacity(0.3)
+                        : isDarkMode
+                            ? Colors.grey.withOpacity(0.1)
+                            : Colors.grey.withOpacity(0.05),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(isDarkMode ? 0.3 : 0.05),
+                      blurRadius: 15,
+                      offset: const Offset(0, 4),
+                      spreadRadius: 0.5,
+                    )
+                  ],
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _buildAvatar(isDarkMode, theme),
+                    const SizedBox(width: 16),
+                    Expanded(
+                        child: _buildContent(
+                      theme,
+                      isDarkMode,
+                      content,
+                      isNewChat,
+                      timestamp,
+                      hasUnread,
+                      isSentByMe,
+                    )),
+                    const SizedBox(width: 12),
+                    _buildChevron(),
+                  ],
                 ),
               ),
             ),
@@ -621,8 +585,7 @@ class _ChatListItemState extends State<_ChatListItem>
             ),
             if (timestamp != null) ...[
               const SizedBox(width: 8),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
+              Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: isDarkMode

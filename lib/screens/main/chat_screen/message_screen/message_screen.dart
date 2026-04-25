@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:live/screens/agora_services/agora_call_service.dart';
+import 'package:live/screens/main/chat_screen/message_screen/call_screens/video_call.dart';
+import 'package:live/screens/main/chat_screen/message_screen/call_screens/voice_call.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:live/screens/main/chat_screen/message_screen/message_service/message_service.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -8,7 +10,6 @@ import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:live/screens/main/chat_screen/message_screen/call_screen/call_screen.dart';
 
 class MessageScreen extends StatefulWidget {
   final Map<String, dynamic> friend;
@@ -25,9 +26,11 @@ class _MessageScreenState extends State<MessageScreen>
   final _supabase = Supabase.instance.client;
   late FocusNode _messageFocusNode;
   late Stream<List<Map<String, dynamic>>> _messagesStream;
+  List<Map<String, dynamic>> _cachedMessages = [];
   bool _showEmojiPicker = false;
   bool _isUploading = false;
   double _uploadProgress = 0;
+  bool _initialScrollDone = false;
 
   @override
   void initState() {
@@ -35,7 +38,6 @@ class _MessageScreenState extends State<MessageScreen>
     _messageFocusNode = FocusNode();
     _messagesStream = _messageService.getMessagesStream(widget.friend['id']);
     _markMessagesAsRead();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
   Future<void> _markMessagesAsRead() async {
@@ -43,6 +45,52 @@ class _MessageScreenState extends State<MessageScreen>
       await _messageService.markAllAsRead(widget.friend['id']);
     } catch (e) {
       debugPrint('Error marking messages as read: $e');
+    }
+  }
+
+  Future<void> _startVideoCall() async {
+    try {
+      final callData = await AgoraCallService().initiateCall(
+        receiverId: widget.friend['id'],
+        callType: 'video',
+      );
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => VideoCallScreen(
+            friend: widget.friend,
+            channelName: callData['channel_name'],
+            callId: callData['id'],
+            isIncoming: false,
+          ),
+        ),
+      );
+    } catch (e) {
+      _showErrorSnackbar('Could not start video call');
+    }
+  }
+
+  Future<void> _startVoiceCall() async {
+    try {
+      final callData = await AgoraCallService().initiateCall(
+        receiverId: widget.friend['id'],
+        callType: 'voice',
+      );
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => VoiceCallScreen(
+            friend: widget.friend,
+            channelName: callData['channel_name'],
+            callId: callData['id'],
+            isIncoming: false,
+          ),
+        ),
+      );
+    } catch (e) {
+      _showErrorSnackbar('Could not start voice call');
     }
   }
 
@@ -60,17 +108,19 @@ class _MessageScreenState extends State<MessageScreen>
     }
   }
 
+  void _scrollToBottomInstant() {
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+    }
+  }
+
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
-      Future.delayed(const Duration(milliseconds: 100), () {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent + 100,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      });
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
     }
   }
 
@@ -84,9 +134,7 @@ class _MessageScreenState extends State<MessageScreen>
     }
   }
 
-  void _onEmojiSelected(Category? category, Emoji emoji) {
-    // Emoji is auto-inserted by textEditingController on EmojiPicker
-  }
+  void _onEmojiSelected(Category? category, Emoji emoji) {}
 
   void _showAttachmentOptions() {
     final colors = Theme.of(context).colorScheme;
@@ -194,7 +242,6 @@ class _MessageScreenState extends State<MessageScreen>
       _uploadProgress = 0;
     });
     try {
-      // Simulate progress
       for (var i = 1; i <= 3; i++) {
         await Future.delayed(const Duration(milliseconds: 200));
         if (mounted) setState(() => _uploadProgress = i * 0.25);
@@ -308,27 +355,7 @@ class _MessageScreenState extends State<MessageScreen>
               child:
                   Icon(Icons.videocam_rounded, size: 22, color: colors.primary),
             ),
-            onPressed: () async {
-              try {
-                final callData = await AgoraCallService().initiateCall(
-                  receiverId: widget.friend['id'],
-                  callType: 'video',
-                );
-                if (!mounted) return;
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => CallScreen(
-                        friend: widget.friend,
-                        channelName: callData['channel_name'],
-                        callId: callData['id'],
-                        isVideo: true,
-                      ),
-                    ));
-              } catch (e) {
-                _showErrorSnackbar('Could not start video call');
-              }
-            },
+            onPressed: _startVideoCall,
           ),
           IconButton(
             icon: Container(
@@ -338,41 +365,18 @@ class _MessageScreenState extends State<MessageScreen>
                   shape: BoxShape.circle),
               child: Icon(Icons.call_rounded, size: 22, color: colors.primary),
             ),
-            onPressed: () async {
-              try {
-                final callData = await AgoraCallService().initiateCall(
-                  receiverId: widget.friend['id'],
-                  callType: 'voice',
-                );
-                if (!mounted) return;
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => CallScreen(
-                        friend: widget.friend,
-                        channelName: callData['channel_name'],
-                        callId: callData['id'],
-                        isVideo: false,
-                      ),
-                    ));
-              } catch (e) {
-                _showErrorSnackbar('Could not start voice call');
-              }
-            },
+            onPressed: _startVoiceCall,
           ),
           const SizedBox(width: 4),
         ],
       ),
       body: Column(children: [
-        // Upload progress bar
         if (_isUploading)
           LinearProgressIndicator(
               value: _uploadProgress,
               backgroundColor: colors.primary.withOpacity(0.1),
               valueColor: AlwaysStoppedAnimation(colors.primary),
               minHeight: 3),
-
-        // Messages
         Expanded(
           child: Container(
             decoration: BoxDecoration(
@@ -385,114 +389,131 @@ class _MessageScreenState extends State<MessageScreen>
             child: StreamBuilder<List<Map<String, dynamic>>>(
               stream: _messagesStream,
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(
+                if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                  _cachedMessages = snapshot.data!;
+                }
+
+                // Show loading only on first open with zero cache
+                if (_cachedMessages.isEmpty) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(
                       child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                              width: 40,
+                              height: 40,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 3, color: colors.primary)),
+                          const SizedBox(height: 16),
+                          Text('Loading messages...',
+                              style: TextStyle(
+                                  color: Colors.grey[500], fontSize: 14)),
+                        ],
+                      ),
+                    );
+                  }
+
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                        SizedBox(
-                            width: 40,
-                            height: 40,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 3, color: colors.primary)),
-                        const SizedBox(height: 16),
-                        Text('Loading messages...',
-                            style: TextStyle(
-                                color: Colors.grey[500], fontSize: 14)),
-                      ]));
-                }
-                if (snapshot.hasError) {
+                            Container(
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                    color: Colors.red.withOpacity(0.1),
+                                    shape: BoxShape.circle),
+                                child: const Icon(Icons.error_outline_rounded,
+                                    size: 48, color: Colors.redAccent)),
+                            const SizedBox(height: 16),
+                            Text('Couldn\'t load messages',
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey[700],
+                                    fontWeight: FontWeight.w500)),
+                            const SizedBox(height: 20),
+                            FilledButton.tonal(
+                                onPressed: () => setState(() {}),
+                                child: const Text('Try Again')),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  // Empty conversation
                   return Center(
-                      child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                    padding: const EdgeInsets.all(20),
-                                    decoration: BoxDecoration(
-                                        color: Colors.red.withOpacity(0.1),
-                                        shape: BoxShape.circle),
-                                    child: const Icon(
-                                        Icons.error_outline_rounded,
-                                        size: 48,
-                                        color: Colors.redAccent)),
-                                const SizedBox(height: 16),
-                                Text('Couldn\'t load messages',
-                                    style: TextStyle(
-                                        fontSize: 16,
-                                        color: Colors.grey[700],
-                                        fontWeight: FontWeight.w500)),
-                                const SizedBox(height: 20),
-                                FilledButton.tonal(
-                                    onPressed: () => setState(() {}),
-                                    child: const Text('Try Again')),
-                              ])));
+                    child: Padding(
+                      padding: const EdgeInsets.all(40),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                              width: 120,
+                              height: 120,
+                              decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                      color: colors.primary.withOpacity(0.2),
+                                      width: 3)),
+                              child: _buildUserAvatar(radius: 50)),
+                          const SizedBox(height: 24),
+                          Text(widget.friend['username'] ?? 'Unknown',
+                              style: const TextStyle(
+                                  fontSize: 24, fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 8),
+                          Text('Say hello! 👋',
+                              style: TextStyle(
+                                  fontSize: 15, color: Colors.grey[600])),
+                          const SizedBox(height: 6),
+                          Text(
+                              'Send your first message to start the conversation',
+                              style: TextStyle(
+                                  fontSize: 13, color: Colors.grey[500]),
+                              textAlign: TextAlign.center),
+                        ],
+                      ),
+                    ),
+                  );
                 }
 
-                final messages = snapshot.data ?? [];
-                WidgetsBinding.instance
-                    .addPostFrameCallback((_) => _scrollToBottom());
-
-                if (messages.isEmpty) {
-                  return Center(
-                      child: Padding(
-                          padding: const EdgeInsets.all(40),
-                          child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                    width: 120,
-                                    height: 120,
-                                    decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                            color:
-                                                colors.primary.withOpacity(0.2),
-                                            width: 3)),
-                                    child: _buildUserAvatar(radius: 50)),
-                                const SizedBox(height: 24),
-                                Text(widget.friend['username'] ?? 'Unknown',
-                                    style: const TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.w700)),
-                                const SizedBox(height: 8),
-                                Text('Say hello! 👋',
-                                    style: TextStyle(
-                                        fontSize: 15, color: Colors.grey[600])),
-                                const SizedBox(height: 6),
-                                Text(
-                                    'Send your first message to start the conversation',
-                                    style: TextStyle(
-                                        fontSize: 13, color: Colors.grey[500]),
-                                    textAlign: TextAlign.center),
-                              ])));
+                // Scroll handling
+                if (!_initialScrollDone) {
+                  _initialScrollDone = true;
+                  WidgetsBinding.instance
+                      .addPostFrameCallback((_) => _scrollToBottomInstant());
+                } else {
+                  WidgetsBinding.instance
+                      .addPostFrameCallback((_) => _scrollToBottom());
                 }
 
                 return ListView.builder(
                   controller: _scrollController,
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  itemCount: messages.length,
+                  itemCount: _cachedMessages.length,
                   itemBuilder: (context, index) {
-                    final message = messages[index];
+                    final message = _cachedMessages[index];
                     final isMe = message['sender_id'] == currentUserId;
                     final showAvatar = index == 0 ||
-                        messages[index - 1]['sender_id'] !=
+                        _cachedMessages[index - 1]['sender_id'] !=
                             message['sender_id'];
                     final createdAt = message['created_at'] != null
                         ? DateTime.parse(message['created_at']).toLocal()
                         : null;
 
-                    // Date separator
                     Widget? dateSeparator;
                     if (createdAt != null) {
                       if (index == 0) {
                         dateSeparator = _buildDateSeparator(createdAt);
                       } else {
-                        final prevCreatedAt = messages[index - 1]
+                        final prevCreatedAt = _cachedMessages[index - 1]
                                     ['created_at'] !=
                                 null
-                            ? DateTime.parse(messages[index - 1]['created_at'])
+                            ? DateTime.parse(
+                                    _cachedMessages[index - 1]['created_at'])
                                 .toLocal()
                             : null;
                         if (prevCreatedAt == null ||
@@ -509,7 +530,7 @@ class _MessageScreenState extends State<MessageScreen>
                           isMe: isMe,
                           showAvatar: showAvatar,
                           timestamp: createdAt,
-                          isLast: index == messages.length - 1),
+                          isLast: index == _cachedMessages.length - 1),
                     ]);
                   },
                 );
@@ -517,11 +538,7 @@ class _MessageScreenState extends State<MessageScreen>
             ),
           ),
         ),
-
-        // Input area
         _buildInputArea(colors, theme),
-
-        // Emoji picker
         if (_showEmojiPicker)
           SizedBox(
             height: 280,
@@ -598,7 +615,6 @@ class _MessageScreenState extends State<MessageScreen>
       child: SafeArea(
           top: false,
           child: Row(children: [
-            // Attachment button
             GestureDetector(
               onTap: _showAttachmentOptions,
               child: Container(
@@ -611,7 +627,6 @@ class _MessageScreenState extends State<MessageScreen>
               ),
             ),
             const SizedBox(width: 10),
-            // Text field
             Expanded(
                 child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -654,7 +669,6 @@ class _MessageScreenState extends State<MessageScreen>
               ]),
             )),
             const SizedBox(width: 10),
-            // Send button
             GestureDetector(
               onTap: _sendMessage,
               child: Container(

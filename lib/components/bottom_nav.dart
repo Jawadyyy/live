@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:live/screens/agora_services/agora_call_service.dart';
-import 'package:live/screens/main/chat_screen/message_screen/call_screen/call_screen.dart';
+import 'package:live/screens/main/chat_screen/message_screen/call_screens/call_screen.dart';
 import 'package:live/screens/main/home_screen/home.dart';
 import 'package:live/screens/main/chat_screen/chat.dart';
 import 'package:live/screens/main/stream_screen/stream.dart';
