@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:live/screens/main/stream_screen/live_stream_screen.dart';
+import 'package:live/screens/main/stream_screen/watch_stream_screen.dart';
 
 class CreateStreamScreen extends StatefulWidget {
   const CreateStreamScreen({super.key});
@@ -47,14 +49,32 @@ class _CreateStreamScreenState extends State<CreateStreamScreen> {
 
     try {
       final thumbnailUrl = await _uploadThumbnail();
-      await _supabase.from('streams').insert({
-        'user_id': _supabase.auth.currentUser!.id,
-        'title': _titleController.text.trim(),
-        'description': _descController.text.trim(),
-        'thumbnail_url': thumbnailUrl,
-        'status': _status,
-      });
-      if (mounted) Navigator.pop(context, _status);
+      final result = await _supabase
+          .from('streams')
+          .insert({
+            'user_id': _supabase.auth.currentUser!.id,
+            'title': _titleController.text.trim(),
+            'description': _descController.text.trim(),
+            'thumbnail_url': thumbnailUrl,
+            'status': _status,
+          })
+          .select()
+          .single();
+
+      if (!mounted) return;
+
+      if (_status == 'live') {
+        // Go directly to live screen
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => LiveStreamScreen(streamData: result),
+          ),
+        );
+      } else {
+        // Scheduled — just go back
+        Navigator.pop(context, _status);
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);

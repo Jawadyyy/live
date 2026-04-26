@@ -3,6 +3,7 @@ import 'package:live/components/appbar.dart';
 import 'package:live/components/stream_fab.dart';
 import 'package:live/screens/theme/theme_provider.dart';
 import 'package:live/screens/main/stream_screen/create_stream_screen.dart';
+import 'package:live/screens/main/stream_screen/watch_stream_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -53,7 +54,6 @@ class _StreamScreenState extends State<StreamScreen>
         },
       ),
       body: Column(children: [
-        // TabBar sits right below the appbar
         Container(
           margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           padding: const EdgeInsets.all(4),
@@ -116,8 +116,8 @@ class _StreamList extends StatelessWidget {
       stream: stream,
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
-          return Center(
-              child: CircularProgressIndicator(color: const Color(0xFF7C56E1)));
+          return const Center(
+              child: CircularProgressIndicator(color: Color(0xFF7C56E1)));
         }
         if (snap.hasError) {
           return _EmptyStreams(
@@ -201,9 +201,16 @@ class _StreamCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(24),
             child: InkWell(
               borderRadius: BorderRadius.circular(24),
-              onTap: () {
-                // TODO: navigate to stream viewer
-              },
+              onTap: isLive
+                  ? () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => WatchStreamScreen(streamData: stream),
+                        ),
+                      );
+                    }
+                  : null,
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
