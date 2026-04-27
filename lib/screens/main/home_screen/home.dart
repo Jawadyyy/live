@@ -23,8 +23,9 @@ class _HomeScreenState extends State<HomeScreen>
   late final AuthService _authService;
   late final PostService _postService;
   late final SupabaseClient _supabaseClient;
-  late final Stream<List<Map<String, dynamic>>> _postsStream;
+  Stream<List<Map<String, dynamic>>>? _postsStream;
   List<Map<String, dynamic>> _cachedPosts = [];
+  bool _isLoadingFriends = true;
 
   @override
   bool get wantKeepAlive => true;
@@ -35,11 +36,49 @@ class _HomeScreenState extends State<HomeScreen>
     _authService = AuthService();
     _postService = PostService();
     _supabaseClient = Supabase.instance.client;
-    _postsStream = _supabaseClient
-        .from('posts')
-        .stream(primaryKey: ['id'])
-        .order('created_at', ascending: false)
-        .map((data) => List<Map<String, dynamic>>.from(data));
+    _initPostsStream();
+  }
+
+  Future<void> _initPostsStream() async {
+    setState(() => _isLoadingFriends = true);
+    final stream = await _getFriendsPosts();
+    if (mounted) {
+      setState(() {
+        _postsStream = stream;
+        _isLoadingFriends = false;
+      });
+    }
+  }
+
+  Future<Stream<List<Map<String, dynamic>>>> _getFriendsPosts() async {
+    final currentUserId = _supabaseClient.auth.currentUser?.id;
+    if (currentUserId == null) return Stream.value([]);
+
+    try {
+      final friendships = await _supabaseClient
+          .from('friendships')
+          .select('requester_id, addressee_id')
+          .eq('status', 'accepted')
+          .or('requester_id.eq.$currentUserId,addressee_id.eq.$currentUserId');
+
+      final friendIds = friendships.map<String>((f) {
+        return f['requester_id'] == currentUserId
+            ? f['addressee_id'] as String
+            : f['requester_id'] as String;
+      }).toList();
+
+      if (friendIds.isEmpty) return Stream.value([]);
+
+      return _supabaseClient
+          .from('posts')
+          .stream(primaryKey: ['id'])
+          .order('created_at', ascending: false)
+          .map((data) => data
+              .where((post) => friendIds.contains(post['user_id']))
+              .toList());
+    } catch (e) {
+      return Stream.value([]);
+    }
   }
 
   Future<void> _openCreatePost() async {
@@ -47,7 +86,10 @@ class _HomeScreenState extends State<HomeScreen>
       context,
       MaterialPageRoute(builder: (_) => const CreatePostScreen()),
     );
-    if (result == true && mounted) setState(() {});
+    if (result == true && mounted) {
+      // Refresh stream after posting so new post appears
+      _initPostsStream();
+    }
   }
 
   Future<void> _toggleTheme() async {
@@ -69,49 +111,51 @@ class _HomeScreenState extends State<HomeScreen>
         centerTitle: true,
         onToggleDarkMode: _toggleTheme,
       ),
-      body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: _postsStream,
-        builder: (context, snapshot) {
-          // Cache data whenever new data arrives
-          if (snapshot.hasData) {
-            _cachedPosts = snapshot.data!;
-          }
+      body: _isLoadingFriends
+          ? const Center(child: CircularProgressIndicator())
+          : StreamBuilder<List<Map<String, dynamic>>>(
+              stream: _postsStream,
+              builder: (context, snapshot) {
+                if (snapshot.hasData) {
+                  _cachedPosts = snapshot.data!;
+                }
 
-          // Show loading only on very first load with no cache
-          if (snapshot.connectionState == ConnectionState.waiting &&
-              _cachedPosts.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
-          }
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    _cachedPosts.isEmpty) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-          // Show error only if no cache to fall back on
-          if (snapshot.hasError && _cachedPosts.isEmpty) {
-            return _ErrorState(error: snapshot.error.toString());
-          }
+                if (snapshot.hasError && _cachedPosts.isEmpty) {
+                  return _ErrorState(error: snapshot.error.toString());
+                }
 
-          if (_cachedPosts.isEmpty) {
-            return const _EmptyState();
-          }
+                if (_cachedPosts.isEmpty) {
+                  return const _EmptyState();
+                }
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: _cachedPosts.length,
-            itemBuilder: (context, index) {
-              final post = _cachedPosts[index];
-              return _PostCard(
-                key: ValueKey(post['id']),
-                post: post,
-                currentUserId: currentUser?.id,
-                isDarkMode: themeProvider.isDarkMode,
-                colorScheme: colorScheme,
-                postService: _postService,
-                onPostUpdated: () {
-                  if (mounted) setState(() {});
-                },
-              );
-            },
-          );
-        },
-      ),
+                return RefreshIndicator(
+                  onRefresh: _initPostsStream,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _cachedPosts.length,
+                    itemBuilder: (context, index) {
+                      final post = _cachedPosts[index];
+                      return _PostCard(
+                        key: ValueKey(post['id']),
+                        post: post,
+                        currentUserId: currentUser?.id,
+                        isDarkMode: themeProvider.isDarkMode,
+                        colorScheme: colorScheme,
+                        postService: _postService,
+                        onPostUpdated: () {
+                          if (mounted) _initPostsStream();
+                        },
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
       floatingActionButton: PostFab(onPressed: _openCreatePost),
     );
   }
@@ -579,12 +623,12 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.article_outlined, size: 64, color: Colors.grey[400]),
+          Icon(Icons.people_outline, size: 64, color: Colors.grey[400]),
           const SizedBox(height: 16),
           Text("No posts yet",
               style: TextStyle(fontSize: 18, color: Colors.grey[600])),
           const SizedBox(height: 8),
-          Text("Be the first to share something!",
+          Text("Add friends to see their posts here!",
               style: TextStyle(color: Colors.grey[500])),
         ],
       ),
