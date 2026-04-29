@@ -67,14 +67,15 @@ class _HomeScreenState extends State<HomeScreen>
             : f['requester_id'] as String;
       }).toList();
 
-      if (friendIds.isEmpty) return Stream.value([]);
+      // Include current user's own ID so their posts appear in the feed too
+      final allowedIds = [...friendIds, currentUserId];
 
       return _supabaseClient
           .from('posts')
           .stream(primaryKey: ['id'])
           .order('created_at', ascending: false)
           .map((data) => data
-              .where((post) => friendIds.contains(post['user_id']))
+              .where((post) => allowedIds.contains(post['user_id']))
               .toList());
     } catch (e) {
       return Stream.value([]);
@@ -87,7 +88,6 @@ class _HomeScreenState extends State<HomeScreen>
       MaterialPageRoute(builder: (_) => const CreatePostScreen()),
     );
     if (result == true && mounted) {
-      // Refresh stream after posting so new post appears
       _initPostsStream();
     }
   }
