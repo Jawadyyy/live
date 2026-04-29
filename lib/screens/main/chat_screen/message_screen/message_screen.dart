@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:live/screens/agora_services/agora_call_service.dart';
 import 'package:live/screens/main/chat_screen/message_screen/call_screens/video_call.dart';
 import 'package:live/screens/main/chat_screen/message_screen/call_screens/voice_call.dart';
+import 'package:live/screens/main/chat_screen/message_screen/widgets/voice_message_bubble.dart';
+import 'package:live/screens/main/chat_screen/message_screen/widgets/voice_recorder.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:live/screens/main/chat_screen/message_screen/message_service/message_service.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -31,6 +33,7 @@ class _MessageScreenState extends State<MessageScreen>
   bool _isUploading = false;
   double _uploadProgress = 0;
   bool _initialScrollDone = false;
+  bool _isRecording = false; // NEW
 
   @override
   void initState() {
@@ -105,6 +108,21 @@ class _MessageScreenState extends State<MessageScreen>
     } catch (e) {
       if (!mounted) return;
       _showErrorSnackbar('Failed to send message');
+    }
+  }
+
+  // NEW
+  Future<void> _sendVoiceMessage(String filePath, int duration) async {
+    setState(() => _isRecording = false);
+    try {
+      await _messageService.sendVoiceMessage(
+        receiverId: widget.friend['id'],
+        filePath: filePath,
+        durationSeconds: duration,
+      );
+      _scrollToBottom();
+    } catch (e) {
+      if (mounted) _showErrorSnackbar('Failed to send voice message');
     }
   }
 
@@ -393,7 +411,6 @@ class _MessageScreenState extends State<MessageScreen>
                   _cachedMessages = snapshot.data!;
                 }
 
-                // Show loading only on first open with zero cache
                 if (_cachedMessages.isEmpty) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return Center(
@@ -444,7 +461,6 @@ class _MessageScreenState extends State<MessageScreen>
                     );
                   }
 
-                  // Empty conversation
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(40),
@@ -480,7 +496,6 @@ class _MessageScreenState extends State<MessageScreen>
                   );
                 }
 
-                // Scroll handling
                 if (!_initialScrollDone) {
                   _initialScrollDone = true;
                   WidgetsBinding.instance
@@ -538,8 +553,17 @@ class _MessageScreenState extends State<MessageScreen>
             ),
           ),
         ),
-        _buildInputArea(colors, theme),
-        if (_showEmojiPicker)
+
+        // UPDATED: show recorder or normal input
+        if (_isRecording)
+          VoiceRecorder(
+            onSend: _sendVoiceMessage,
+            onCancel: () => setState(() => _isRecording = false),
+          )
+        else
+          _buildInputArea(colors, theme),
+
+        if (_showEmojiPicker && !_isRecording)
           SizedBox(
             height: 280,
             child: EmojiPicker(
@@ -615,6 +639,7 @@ class _MessageScreenState extends State<MessageScreen>
       child: SafeArea(
           top: false,
           child: Row(children: [
+            // Attachment button
             GestureDetector(
               onTap: _showAttachmentOptions,
               child: Container(
@@ -627,6 +652,7 @@ class _MessageScreenState extends State<MessageScreen>
               ),
             ),
             const SizedBox(width: 10),
+            // Text field
             Expanded(
                 child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -669,6 +695,21 @@ class _MessageScreenState extends State<MessageScreen>
               ]),
             )),
             const SizedBox(width: 10),
+            // Mic button - NEW
+            GestureDetector(
+              onTap: () => setState(() => _isRecording = true),
+              child: Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: colors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(Icons.mic_rounded, color: colors.primary, size: 22),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Send button
             GestureDetector(
               onTap: _sendMessage,
               child: Container(
@@ -709,6 +750,7 @@ class _MessageScreenState extends State<MessageScreen>
     final fileUrl = message['file_url'];
     final fileName = message['file_name'] ?? 'File';
     final fileSize = message['file_size'];
+    final duration = message['duration'];
 
     return Padding(
       padding: EdgeInsets.only(bottom: isLast ? 4 : 6, top: showAvatar ? 6 : 2),
@@ -758,7 +800,7 @@ class _MessageScreenState extends State<MessageScreen>
                   ],
                 ),
                 child: _buildBubbleContent(messageType, content, fileUrl,
-                    fileName, fileSize, isMe, colors),
+                    fileName, fileSize, duration, isMe, colors),
               ),
               if (timestamp != null)
                 Padding(
@@ -786,9 +828,24 @@ class _MessageScreenState extends State<MessageScreen>
     );
   }
 
-  Widget _buildBubbleContent(String type, String content, String? fileUrl,
-      String fileName, int? fileSize, bool isMe, ColorScheme colors) {
+  Widget _buildBubbleContent(
+      String type,
+      String content,
+      String? fileUrl,
+      String fileName,
+      int? fileSize,
+      int? duration, // NEW param
+      bool isMe,
+      ColorScheme colors) {
     switch (type) {
+      // NEW voice case
+      case 'voice':
+        return VoiceMessageBubble(
+          audioUrl: fileUrl!,
+          durationSeconds: duration ?? 0,
+          isMe: isMe,
+          colors: colors,
+        );
       case 'image':
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           ClipRRect(
