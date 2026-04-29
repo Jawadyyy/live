@@ -13,6 +13,7 @@ class MessageService {
     String? fileUrl,
     String? fileName,
     int? fileSize,
+    int? duration,
   }) async {
     final currentUserId = _supabase.auth.currentUser?.id;
     if (currentUserId == null) throw Exception('User not authenticated');
@@ -25,6 +26,7 @@ class MessageService {
       'file_url': fileUrl,
       'file_name': fileName,
       'file_size': fileSize,
+      'duration': duration,
     });
   }
 
@@ -53,8 +55,11 @@ class MessageService {
     };
   }
 
-  Future<void> sendFileMessage(
-      {required String receiverId, required File file, String? caption}) async {
+  Future<void> sendFileMessage({
+    required String receiverId,
+    required File file,
+    String? caption,
+  }) async {
     final r = await uploadFile(file: file, receiverId: receiverId);
     await sendMessage(
       receiverId: receiverId,
@@ -63,6 +68,38 @@ class MessageService {
       fileUrl: r['file_url'],
       fileName: r['file_name'],
       fileSize: r['file_size'],
+    );
+  }
+
+  Future<void> sendVoiceMessage({
+    required String receiverId,
+    required String filePath,
+    required int durationSeconds,
+  }) async {
+    final currentUserId = _supabase.auth.currentUser?.id;
+    if (currentUserId == null) throw Exception('User not authenticated');
+
+    final file = File(filePath);
+    final fileName = 'voice_${DateTime.now().millisecondsSinceEpoch}.aac';
+    final storagePath = '$currentUserId/$receiverId/$fileName';
+
+    await _supabase.storage.from(_storageBucket).upload(
+          storagePath,
+          file,
+          fileOptions: const FileOptions(contentType: 'audio/aac'),
+        );
+
+    final fileUrl =
+        _supabase.storage.from(_storageBucket).getPublicUrl(storagePath);
+
+    await sendMessage(
+      receiverId: receiverId,
+      content: '',
+      messageType: 'voice',
+      fileUrl: fileUrl,
+      fileName: fileName,
+      fileSize: await file.length(),
+      duration: durationSeconds,
     );
   }
 
@@ -98,7 +135,6 @@ class MessageService {
     }
   }
 
-  // Used by MessageScreen — streams full conversation
   Stream<List<Map<String, dynamic>>> getMessagesStream(String otherUserId) {
     final currentUserId = _supabase.auth.currentUser?.id;
     if (currentUserId == null) return Stream.value([]);
@@ -113,7 +149,6 @@ class MessageService {
             }).toList());
   }
 
-  // Used by ChatScreen list items — streams just the last message
   Stream<Map<String, dynamic>?> getLastMessageStream(String otherUserId) {
     final currentUserId = _supabase.auth.currentUser?.id;
     if (currentUserId == null) return Stream.value(null);
@@ -152,7 +187,6 @@ class MessageService {
     await _supabase.from('messages').delete().eq('id', messageId);
   }
 
-  // Kept for any legacy usage
   Future<int> getUnreadCount(String senderId) async {
     final currentUserId = _supabase.auth.currentUser?.id;
     if (currentUserId == null) return 0;
