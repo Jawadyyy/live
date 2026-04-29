@@ -1,10 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:live/screens/agora_services/agora_call_service.dart';
 import 'package:live/screens/main/chat_screen/message_screen/call_screens/video_call.dart';
 import 'package:live/screens/main/chat_screen/message_screen/call_screens/voice_call.dart';
 import 'package:live/screens/main/chat_screen/message_screen/widgets/voice_message_bubble.dart';
 import 'package:live/screens/main/chat_screen/message_screen/widgets/voice_recorder.dart';
+import 'package:live/screens/main/chat_screen/message_screen/widgets/message_options_sheet.dart';
+import 'package:live/screens/main/chat_screen/message_screen/message_service/message_action_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:live/screens/main/chat_screen/message_screen/message_service/message_service.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -25,6 +28,7 @@ class _MessageScreenState extends State<MessageScreen>
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final _messageService = MessageService();
+  final _actionService = MessageActionService();
   final _supabase = Supabase.instance.client;
   late FocusNode _messageFocusNode;
   late Stream<List<Map<String, dynamic>>> _messagesStream;
@@ -33,7 +37,10 @@ class _MessageScreenState extends State<MessageScreen>
   bool _isUploading = false;
   double _uploadProgress = 0;
   bool _initialScrollDone = false;
-  bool _isRecording = false; // NEW
+  bool _isRecording = false;
+
+  // Pinned message
+  Map<String, dynamic>? _pinnedMessage;
 
   @override
   void initState() {
@@ -111,7 +118,6 @@ class _MessageScreenState extends State<MessageScreen>
     }
   }
 
-  // NEW
   Future<void> _sendVoiceMessage(String filePath, int duration) async {
     setState(() => _isRecording = false);
     try {
@@ -288,6 +294,301 @@ class _MessageScreenState extends State<MessageScreen>
     ));
   }
 
+  // ─── Long-press message action sheet ───────────────────────────────────────
+  void _showMessageOptions({
+    required Map<String, dynamic> message,
+    required bool isMe,
+  }) {
+    HapticFeedback.mediumImpact();
+    final colors = Theme.of(context).colorScheme;
+    final messageType = message['message_type'] ?? 'text';
+    final isPinned = _pinnedMessage?['id'] == message['id'];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+
+            // Message preview
+            if (messageType == 'text')
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: colors.surfaceVariant.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  message['content'] ?? '',
+                  style: TextStyle(
+                      fontSize: 14,
+                      color: colors.onSurface.withOpacity(0.7),
+                      height: 1.4),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+
+            // Action tiles
+            _actionTile(
+              icon: Icons.copy_rounded,
+              label: 'Copy',
+              color: colors.primary,
+              onTap: () {
+                Navigator.pop(ctx);
+                if (messageType == 'text') {
+                  Clipboard.setData(
+                      ClipboardData(text: message['content'] ?? ''));
+                  _showSuccessSnackbar('Copied to clipboard');
+                }
+              },
+              show: messageType == 'text',
+            ),
+
+            // ── PIN: silent, no snackbar ──────────────────────────────────
+            _actionTile(
+              icon: isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+              label: isPinned ? 'Unpin Message' : 'Pin Message',
+              color: Colors.orange,
+              onTap: () {
+                Navigator.pop(ctx);
+                setState(() {
+                  _pinnedMessage = isPinned ? null : message;
+                });
+                // No snackbar — pin/unpin happens silently
+              },
+            ),
+
+            // ── EDIT: only allowed within 15 minutes ─────────────────────
+            _actionTile(
+              icon: Icons.edit_rounded,
+              label: 'Edit Message',
+              color: Colors.blue,
+              onTap: () {
+                Navigator.pop(ctx);
+                final createdAt = message['created_at'] != null
+                    ? DateTime.parse(message['created_at']).toLocal()
+                    : null;
+                final canEdit = createdAt != null &&
+                    DateTime.now().difference(createdAt).inMinutes < 15;
+                if (!canEdit) {
+                  _showErrorSnackbar(
+                      'Messages can only be edited within 15 minutes');
+                  return;
+                }
+                _showEditDialog(message);
+              },
+              show: isMe && messageType == 'text',
+            ),
+
+            _actionTile(
+              icon: Icons.delete_rounded,
+              label: 'Delete Message',
+              color: Colors.red,
+              onTap: () {
+                Navigator.pop(ctx);
+                _confirmDelete(message['id']);
+              },
+              show: isMe,
+            ),
+
+            const SizedBox(height: 4),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _actionTile({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+    bool show = true,
+  }) {
+    if (!show) return const SizedBox.shrink();
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        child: Row(children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: label == 'Delete Message' ? Colors.red : null)),
+        ]),
+      ),
+    );
+  }
+
+  void _showEditDialog(Map<String, dynamic> message) {
+    final colors = Theme.of(context).colorScheme;
+    final controller = TextEditingController(text: message['content'] ?? '');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: colors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(children: [
+          Icon(Icons.edit_rounded, color: colors.primary, size: 20),
+          const SizedBox(width: 8),
+          const Text('Edit Message',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+        ]),
+        content: TextField(
+          controller: controller,
+          maxLines: 4,
+          minLines: 1,
+          autofocus: true,
+          style: const TextStyle(fontSize: 15),
+          decoration: InputDecoration(
+            hintText: 'Edit your message...',
+            filled: true,
+            fillColor: colors.surfaceVariant.withOpacity(0.4),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel',
+                style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: colors.primary,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () async {
+              final newText = controller.text.trim();
+              if (newText.isEmpty || newText == message['content']) {
+                Navigator.pop(ctx);
+                return;
+              }
+              Navigator.pop(ctx);
+              try {
+                await _supabase
+                    .from('messages')
+                    .update({'content': newText}).eq('id', message['id']);
+                _showSuccessSnackbar('Message edited');
+              } catch (e) {
+                _showErrorSnackbar('Failed to edit message');
+              }
+            },
+            child: const Text('Save', style: TextStyle(fontSize: 14)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(String messageId) {
+    final colors = Theme.of(context).colorScheme;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: colors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child:
+                const Icon(Icons.delete_rounded, color: Colors.red, size: 18),
+          ),
+          const SizedBox(width: 10),
+          const Text('Delete Message',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+        ]),
+        content: const Text(
+          'This message will be permanently deleted. This action cannot be undone.',
+          style: TextStyle(fontSize: 14, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel',
+                style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await _messageService.deleteMessage(messageId);
+                if (_pinnedMessage?['id'] == messageId) {
+                  setState(() => _pinnedMessage = null);
+                }
+                _showSuccessSnackbar('Message deleted');
+              } catch (e) {
+                _showErrorSnackbar('Failed to delete message');
+              }
+            },
+            child: const Text('Delete', style: TextStyle(fontSize: 14)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSuccessSnackbar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Row(children: [
+        const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+        const SizedBox(width: 8),
+        Text(message),
+      ]),
+      backgroundColor: Colors.green,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      duration: const Duration(seconds: 2),
+    ));
+  }
+
   String _formatFileSize(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1048576) return '${(bytes / 1024).toStringAsFixed(1)} KB';
@@ -395,6 +696,10 @@ class _MessageScreenState extends State<MessageScreen>
               backgroundColor: colors.primary.withOpacity(0.1),
               valueColor: AlwaysStoppedAnimation(colors.primary),
               minHeight: 3),
+
+        // Pinned message banner
+        if (_pinnedMessage != null) _buildPinnedBanner(colors),
+
         Expanded(
           child: Container(
             decoration: BoxDecoration(
@@ -554,7 +859,6 @@ class _MessageScreenState extends State<MessageScreen>
           ),
         ),
 
-        // UPDATED: show recorder or normal input
         if (_isRecording)
           VoiceRecorder(
             onSend: _sendVoiceMessage,
@@ -585,15 +889,80 @@ class _MessageScreenState extends State<MessageScreen>
                   iconColor: Colors.grey,
                   backgroundColor: colors.surface,
                 ),
-                searchViewConfig: SearchViewConfig(
-                  backgroundColor: colors.surface,
-                ),
+                searchViewConfig:
+                    SearchViewConfig(backgroundColor: colors.surface),
                 bottomActionBarConfig:
                     const BottomActionBarConfig(enabled: false),
               ),
             ),
           ),
       ]),
+    );
+  }
+
+  // ─── Pinned message banner ──────────────────────────────────────────────────
+  Widget _buildPinnedBanner(ColorScheme colors) {
+    final content = _pinnedMessage!['content'] ?? '';
+    final type = _pinnedMessage!['message_type'] ?? 'text';
+
+    return GestureDetector(
+      onTap: () {
+        final idx =
+            _cachedMessages.indexWhere((m) => m['id'] == _pinnedMessage!['id']);
+        if (idx != -1 && _scrollController.hasClients) {
+          _scrollController.animateTo(
+            idx * 80.0,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeOut,
+          );
+        }
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: colors.primary.withOpacity(0.06),
+          border: Border(
+            bottom:
+                BorderSide(color: colors.primary.withOpacity(0.15), width: 0.5),
+            left: BorderSide(color: colors.primary, width: 3),
+          ),
+        ),
+        child: Row(children: [
+          Icon(Icons.push_pin, size: 14, color: colors.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Pinned Message',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: colors.primary)),
+                const SizedBox(height: 2),
+                Text(
+                  type == 'text'
+                      ? content
+                      : type == 'voice'
+                          ? '🎤 Voice message'
+                          : type == 'image'
+                              ? '📷 Image'
+                              : '📎 File',
+                  style: TextStyle(
+                      fontSize: 13, color: colors.onSurface.withOpacity(0.7)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: () => setState(() => _pinnedMessage = null),
+            child: Icon(Icons.close_rounded, size: 16, color: Colors.grey[500]),
+          ),
+        ]),
+      ),
     );
   }
 
@@ -639,7 +1008,6 @@ class _MessageScreenState extends State<MessageScreen>
       child: SafeArea(
           top: false,
           child: Row(children: [
-            // Attachment button
             GestureDetector(
               onTap: _showAttachmentOptions,
               child: Container(
@@ -652,7 +1020,6 @@ class _MessageScreenState extends State<MessageScreen>
               ),
             ),
             const SizedBox(width: 10),
-            // Text field
             Expanded(
                 child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -695,7 +1062,6 @@ class _MessageScreenState extends State<MessageScreen>
               ]),
             )),
             const SizedBox(width: 10),
-            // Mic button - NEW
             GestureDetector(
               onTap: () => setState(() => _isRecording = true),
               child: Container(
@@ -709,7 +1075,6 @@ class _MessageScreenState extends State<MessageScreen>
               ),
             ),
             const SizedBox(width: 8),
-            // Send button
             GestureDetector(
               onTap: _sendMessage,
               child: Container(
@@ -751,79 +1116,106 @@ class _MessageScreenState extends State<MessageScreen>
     final fileName = message['file_name'] ?? 'File';
     final fileSize = message['file_size'];
     final duration = message['duration'];
+    final isPinned = _pinnedMessage?['id'] == message['id'];
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: isLast ? 4 : 6, top: showAvatar ? 6 : 2),
-      child: Row(
-        mainAxisAlignment:
-            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (!isMe && showAvatar)
-            Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: CircleAvatar(
-                  radius: 16,
-                  backgroundColor: Colors.grey[200],
-                  backgroundImage: widget.friend['avatar_url'] != null
-                      ? NetworkImage(widget.friend['avatar_url'])
-                      : null,
-                  child: widget.friend['avatar_url'] == null
-                      ? Icon(Icons.person, size: 16, color: Colors.grey[600])
-                      : null,
-                ))
-          else if (!isMe)
-            const SizedBox(width: 40),
-          Flexible(
-              child: Column(
-            crossAxisAlignment:
-                isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-            children: [
-              Container(
-                constraints: BoxConstraints(
-                    maxWidth: MediaQuery.of(context).size.width * 0.75),
-                decoration: BoxDecoration(
-                  color: isMe
-                      ? colors.primary
-                      : colors.surfaceContainerHighest.withOpacity(0.7),
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(20),
-                    topRight: const Radius.circular(20),
-                    bottomLeft: Radius.circular(isMe ? 20 : 4),
-                    bottomRight: Radius.circular(isMe ? 4 : 20),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                        color: Colors.black.withOpacity(0.06),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2))
-                  ],
-                ),
-                child: _buildBubbleContent(messageType, content, fileUrl,
-                    fileName, fileSize, duration, isMe, colors),
-              ),
-              if (timestamp != null)
-                Padding(
-                    padding: const EdgeInsets.only(top: 4, left: 8, right: 8),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Text(timeago.format(timestamp),
-                          style:
-                              TextStyle(fontSize: 11, color: Colors.grey[500])),
-                      if (isMe) ...[
-                        const SizedBox(width: 4),
-                        Icon(
-                            isRead
-                                ? Icons.done_all_rounded
-                                : Icons.done_rounded,
-                            size: 14,
-                            color: isRead
-                                ? Colors.lightBlueAccent
-                                : Colors.grey[500]),
+    return GestureDetector(
+      onLongPress: () => _showMessageOptions(message: message, isMe: isMe),
+      child: Padding(
+        padding:
+            EdgeInsets.only(bottom: isLast ? 4 : 6, top: showAvatar ? 6 : 2),
+        child: Row(
+          mainAxisAlignment:
+              isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            if (!isMe && showAvatar)
+              Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: Colors.grey[200],
+                    backgroundImage: widget.friend['avatar_url'] != null
+                        ? NetworkImage(widget.friend['avatar_url'])
+                        : null,
+                    child: widget.friend['avatar_url'] == null
+                        ? Icon(Icons.person, size: 16, color: Colors.grey[600])
+                        : null,
+                  ))
+            else if (!isMe)
+              const SizedBox(width: 40),
+            Flexible(
+                child: Column(
+              crossAxisAlignment:
+                  isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              children: [
+                if (isPinned)
+                  Padding(
+                    padding:
+                        const EdgeInsets.only(bottom: 4, left: 4, right: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.push_pin,
+                            size: 11, color: Colors.orange[400]),
+                        const SizedBox(width: 3),
+                        Text('Pinned',
+                            style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.orange[400],
+                                fontWeight: FontWeight.w500)),
                       ],
-                    ])),
-            ],
-          )),
-        ],
+                    ),
+                  ),
+                Container(
+                  constraints: BoxConstraints(
+                      maxWidth: MediaQuery.of(context).size.width * 0.75),
+                  decoration: BoxDecoration(
+                    color: isMe
+                        ? colors.primary
+                        : colors.surfaceContainerHighest.withOpacity(0.7),
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(20),
+                      topRight: const Radius.circular(20),
+                      bottomLeft: Radius.circular(isMe ? 20 : 4),
+                      bottomRight: Radius.circular(isMe ? 4 : 20),
+                    ),
+                    border: isPinned
+                        ? Border.all(
+                            color: Colors.orange.withOpacity(0.5), width: 1.5)
+                        : null,
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withOpacity(0.06),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2))
+                    ],
+                  ),
+                  child: _buildBubbleContent(messageType, content, fileUrl,
+                      fileName, fileSize, duration, isMe, colors),
+                ),
+                if (timestamp != null)
+                  Padding(
+                      padding: const EdgeInsets.only(top: 4, left: 8, right: 8),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Text(timeago.format(timestamp),
+                            style: TextStyle(
+                                fontSize: 11, color: Colors.grey[500])),
+                        if (isMe) ...[
+                          const SizedBox(width: 4),
+                          Icon(
+                              isRead
+                                  ? Icons.done_all_rounded
+                                  : Icons.done_rounded,
+                              size: 14,
+                              color: isRead
+                                  ? Colors.lightBlueAccent
+                                  : Colors.grey[500]),
+                        ],
+                      ])),
+              ],
+            )),
+          ],
+        ),
       ),
     );
   }
@@ -834,11 +1226,10 @@ class _MessageScreenState extends State<MessageScreen>
       String? fileUrl,
       String fileName,
       int? fileSize,
-      int? duration, // NEW param
+      int? duration,
       bool isMe,
       ColorScheme colors) {
     switch (type) {
-      // NEW voice case
       case 'voice':
         return VoiceMessageBubble(
           audioUrl: fileUrl!,
