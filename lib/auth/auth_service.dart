@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:live/config/app_config.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthService {
@@ -64,14 +65,9 @@ class AuthService {
   }
 
   Future<bool> signInWithGoogle() async {
-    const webClientId =
-        '608183093265-feg362p157r6k2t6elfo3aokc18h5oj4.apps.googleusercontent.com';
-    const androidClientId =
-        '608183093265-liidh47smc7raf166t5j9qlm21hjirad.apps.googleusercontent.com';
-
     final googleSignIn = GoogleSignIn(
-      clientId: androidClientId,
-      serverClientId: webClientId,
+      clientId: AppConfig.googleAndroidClientId,
+      serverClientId: AppConfig.googleWebClientId,
     );
 
     try {

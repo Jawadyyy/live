@@ -1,10 +1,11 @@
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
+import 'package:live/config/app_config.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 
 class AgoraStreamService {
-  static const String appId = '3438fb4f909e4753b9f88291f2b22929';
+  static const String appId = AppConfig.agoraAppId;
   RtcEngine? _engine;
   final _supabase = Supabase.instance.client;
 
