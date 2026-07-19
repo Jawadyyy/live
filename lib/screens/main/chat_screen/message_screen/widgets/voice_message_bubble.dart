@@ -2,7 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 
 class VoiceMessageBubble extends StatefulWidget {
+  /// Stored value from the message row — a storage path (private bucket) or,
+  /// for older messages, a full URL.
   final String audioUrl;
+
+  /// Resolves [audioUrl] to a playable (signed) URL just before playback.
+  /// If null, [audioUrl] is played as-is.
+  final Future<String> Function(String stored)? urlResolver;
+
   final int durationSeconds;
   final bool isMe;
   final ColorScheme colors;
@@ -10,6 +17,7 @@ class VoiceMessageBubble extends StatefulWidget {
   const VoiceMessageBubble({
     super.key,
     required this.audioUrl,
+    this.urlResolver,
     required this.durationSeconds,
     required this.isMe,
     required this.colors,
@@ -85,8 +93,11 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
       await _player.pausePlayer();
       setState(() => _isPlaying = false);
     } else {
+      final uri = widget.urlResolver != null
+          ? await widget.urlResolver!(widget.audioUrl)
+          : widget.audioUrl;
       await _player.startPlayer(
-        fromURI: widget.audioUrl,
+        fromURI: uri,
         codec: Codec.aacADTS,
         whenFinished: () {
           if (mounted) {

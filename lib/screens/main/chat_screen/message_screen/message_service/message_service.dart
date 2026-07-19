@@ -6,6 +6,33 @@ class MessageService {
   final _supabase = Supabase.instance.client;
   static const _storageBucket = 'chat-attachments';
 
+  /// How long a signed media URL stays valid (seconds).
+  static const _signedUrlTtl = 60 * 60; // 1 hour
+
+  /// Marker that appears in the OLD-style public URLs we used to store, e.g.
+  /// https://<proj>.supabase.co/storage/v1/object/public/chat-attachments/<path>
+  static const _publicMarker = '/object/public/$_storageBucket/';
+
+  /// Extract the storage object path from whatever we stored in `file_url`.
+  ///
+  /// New messages store the bare path (e.g. `uid/receiver/123_file.jpg`).
+  /// Old messages stored a full public URL — strip everything up to and
+  /// including the bucket segment so those still resolve after the bucket is
+  /// made private.
+  String _storagePathOf(String stored) {
+    final i = stored.indexOf(_publicMarker);
+    if (i != -1) return stored.substring(i + _publicMarker.length);
+    return stored; // already a bare path
+  }
+
+  /// Turn a stored `file_url` (path or legacy public URL) into a short-lived
+  /// signed URL that a private bucket will serve to the two participants.
+  Future<String> resolveMediaUrl(String stored) async {
+    return _supabase.storage
+        .from(_storageBucket)
+        .createSignedUrl(_storagePathOf(stored), _signedUrlTtl);
+  }
+
   Future<void> sendMessage({
     required String receiverId,
     required String content,
@@ -47,8 +74,9 @@ class MessageService {
     final isImage =
         ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'].contains(fileExt);
     return {
-      'file_url':
-          _supabase.storage.from(_storageBucket).getPublicUrl(storagePath),
+      // Store the object path (bucket is private); resolve to a signed URL on
+      // read via resolveMediaUrl().
+      'file_url': storagePath,
       'file_name': fileName,
       'file_size': fileSize,
       'message_type': isImage ? 'image' : 'file',
@@ -89,14 +117,11 @@ class MessageService {
           fileOptions: const FileOptions(contentType: 'audio/aac'),
         );
 
-    final fileUrl =
-        _supabase.storage.from(_storageBucket).getPublicUrl(storagePath);
-
     await sendMessage(
       receiverId: receiverId,
       content: '',
       messageType: 'voice',
-      fileUrl: fileUrl,
+      fileUrl: storagePath,
       fileName: fileName,
       fileSize: await file.length(),
       duration: durationSeconds,

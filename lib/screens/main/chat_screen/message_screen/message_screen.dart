@@ -39,6 +39,28 @@ class _MessageScreenState extends State<MessageScreen>
   bool _initialScrollDone = false;
   bool _isRecording = false;
 
+  // Cache of resolved signed media URLs, keyed by the stored file_url (path).
+  // The bucket is private, so each image/voice note needs a short-lived signed
+  // URL; caching keeps list rebuilds from re-signing (and flickering) every
+  // frame. Entries are refreshed when they near expiry.
+  final Map<String, String> _signedUrlCache = {};
+  final Map<String, DateTime> _signedUrlExpiry = {};
+
+  /// Resolve a stored file_url (path or legacy public URL) to a signed URL,
+  /// caching the result until shortly before it expires.
+  Future<String> _resolveMedia(String stored) async {
+    final now = DateTime.now();
+    final cached = _signedUrlCache[stored];
+    final exp = _signedUrlExpiry[stored];
+    if (cached != null && exp != null && exp.isAfter(now)) return cached;
+
+    final url = await _messageService.resolveMediaUrl(stored);
+    _signedUrlCache[stored] = url;
+    // TTL is 1h; refresh 5 min early to avoid mid-view expiry.
+    _signedUrlExpiry[stored] = now.add(const Duration(minutes: 55));
+    return url;
+  }
+
   // Pinned message
   Map<String, dynamic>? _pinnedMessage;
 
@@ -1233,6 +1255,7 @@ class _MessageScreenState extends State<MessageScreen>
       case 'voice':
         return VoiceMessageBubble(
           audioUrl: fileUrl!,
+          urlResolver: _resolveMedia,
           durationSeconds: duration ?? 0,
           isMe: isMe,
           colors: colors,
@@ -1248,31 +1271,53 @@ class _MessageScreenState extends State<MessageScreen>
               bottomRight:
                   Radius.circular(content.isNotEmpty ? 0 : (isMe ? 4 : 20)),
             ),
-            child: Image.network(
-              fileUrl!,
-              width: 240,
-              fit: BoxFit.cover,
-              loadingBuilder: (ctx, child, progress) {
-                if (progress == null) return child;
-                return Container(
-                    width: 240,
-                    height: 180,
-                    color: Colors.grey[200],
-                    child: Center(
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            value: progress.expectedTotalBytes != null
-                                ? progress.cumulativeBytesLoaded /
-                                    progress.expectedTotalBytes!
-                                : null)));
-              },
-              errorBuilder: (ctx, err, stack) => Container(
+            child: FutureBuilder<String>(
+              future: _resolveMedia(fileUrl!),
+              builder: (ctx, snap) {
+                if (snap.connectionState != ConnectionState.done) {
+                  return Container(
+                      width: 240,
+                      height: 180,
+                      color: Colors.grey[200],
+                      child: const Center(
+                          child: CircularProgressIndicator(strokeWidth: 2)));
+                }
+                if (snap.hasError || snap.data == null) {
+                  return Container(
+                      width: 240,
+                      height: 100,
+                      color: Colors.grey[200],
+                      child: const Center(
+                          child: Icon(Icons.broken_image_rounded,
+                              color: Colors.grey)));
+                }
+                return Image.network(
+                  snap.data!,
                   width: 240,
-                  height: 100,
-                  color: Colors.grey[200],
-                  child: const Center(
-                      child: Icon(Icons.broken_image_rounded,
-                          color: Colors.grey))),
+                  fit: BoxFit.cover,
+                  loadingBuilder: (ctx, child, progress) {
+                    if (progress == null) return child;
+                    return Container(
+                        width: 240,
+                        height: 180,
+                        color: Colors.grey[200],
+                        child: Center(
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                value: progress.expectedTotalBytes != null
+                                    ? progress.cumulativeBytesLoaded /
+                                        progress.expectedTotalBytes!
+                                    : null)));
+                  },
+                  errorBuilder: (ctx, err, stack) => Container(
+                      width: 240,
+                      height: 100,
+                      color: Colors.grey[200],
+                      child: const Center(
+                          child: Icon(Icons.broken_image_rounded,
+                              color: Colors.grey))),
+                );
+              },
             ),
           ),
           if (content.isNotEmpty)
