@@ -50,4 +50,4 @@ flutter_launcher_icons:
   ios: false
   image_path: "assets/icons/app_icon.png"  # Make sure you have an icon here
   adaptive_icon_background: "#ffffff"  # Optional: background color for Android adaptive icon
-  adaptive_icon_foreground: "assets/icons/app_icon.jpg"  # Optional: foreground for adaptive icon
+  adaptive_icon_foreground: "assets/icons/app_icon.png"  # Optional: foreground for adaptive icon

@@ -39,12 +39,7 @@ class _PhoneFormState extends State<PhoneForm> {
         hintStyle: TextStyle(color: hintColor),
         prefixIcon: Padding(
           padding: const EdgeInsets.all(12.0),
-          child: Image.asset(
-            'assets/images/icons/phone.png',
-            width: 24,
-            height: 24,
-            color: hintColor,
-          ),
+          child: Icon(Icons.phone_outlined, size: 24, color: hintColor),
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
