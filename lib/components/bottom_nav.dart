@@ -6,6 +6,7 @@ import 'package:live/screens/main/home_screen/home.dart';
 import 'package:live/screens/main/chat_screen/chat.dart';
 import 'package:live/screens/main/stream_screen/stream.dart';
 import 'package:live/screens/main/profile_screen/profile.dart';
+import 'package:live/services/presence_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class CustomBottomNavBar extends StatefulWidget {
@@ -31,11 +32,13 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar> {
   void initState() {
     super.initState();
     _listenForIncomingCalls();
+    PresenceService.instance.start();
   }
 
   @override
   void dispose() {
     _callChannel?.unsubscribe();
+    PresenceService.instance.stop();
     super.dispose();
   }
 

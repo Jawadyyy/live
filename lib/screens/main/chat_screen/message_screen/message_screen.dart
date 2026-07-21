@@ -10,11 +10,16 @@ import 'package:live/screens/main/chat_screen/message_screen/widgets/message_opt
 import 'package:live/screens/main/chat_screen/message_screen/message_service/message_action_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:live/screens/main/chat_screen/message_screen/message_service/message_service.dart';
-import 'package:timeago/timeago.dart' as timeago;
+import 'package:live/services/presence_service.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+
+/// In-memory cache of loaded messages per conversation, so reopening a chat
+/// shows history instantly instead of a loader on every visit. Refreshed in the
+/// background on each open and kept in sync by the realtime handlers.
+final Map<String, List<Map<String, dynamic>>> _conversationCache = {};
 
 class MessageScreen extends StatefulWidget {
   final Map<String, dynamic> friend;
@@ -31,12 +36,15 @@ class _MessageScreenState extends State<MessageScreen>
   final _actionService = MessageActionService();
   final _supabase = Supabase.instance.client;
   late FocusNode _messageFocusNode;
-  late Stream<List<Map<String, dynamic>>> _messagesStream;
-  List<Map<String, dynamic>> _cachedMessages = [];
+  final List<Map<String, dynamic>> _messages = [];
+  RealtimeChannel? _channel;
+  bool _loadingInitial = true;
+  bool _loadingOlder = false;
+  bool _hasMore = true;
+  static const int _pageSize = 25;
   bool _showEmojiPicker = false;
   bool _isUploading = false;
   double _uploadProgress = 0;
-  bool _initialScrollDone = false;
   bool _isRecording = false;
 
   // Cache of resolved signed media URLs, keyed by the stored file_url (path).
@@ -68,8 +76,158 @@ class _MessageScreenState extends State<MessageScreen>
   void initState() {
     super.initState();
     _messageFocusNode = FocusNode();
-    _messagesStream = _messageService.getMessagesStream(widget.friend['id']);
-    _markMessagesAsRead();
+    _scrollController.addListener(_onScroll);
+    _loadInitial();
+    _setupRealtime();
+  }
+
+  void _cacheMessages() {
+    _conversationCache[widget.friend['id']] =
+        List<Map<String, dynamic>>.of(_messages);
+  }
+
+  Future<void> _loadInitial() async {
+    // Seed instantly from cache so revisits show messages with no loader.
+    final cached = _conversationCache[widget.friend['id']];
+    if (cached != null && cached.isNotEmpty) {
+      _messages.addAll(cached);
+      _loadingInitial = false;
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _scrollToBottomInstant());
+    }
+
+    try {
+      final rows = await _messageService.fetchMessages(widget.friend['id'],
+          limit: _pageSize);
+      if (!mounted) return;
+      setState(() {
+        _messages
+          ..clear()
+          ..addAll(rows.reversed);
+        _loadingInitial = false;
+        _hasMore = rows.length == _pageSize;
+      });
+      _cacheMessages();
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _scrollToBottomInstant());
+      _markMessagesAsRead();
+    } catch (e) {
+      if (mounted) setState(() => _loadingInitial = false);
+    }
+  }
+
+  void _onScroll() {
+    if (_scrollController.hasClients &&
+        _scrollController.position.pixels <= 120 &&
+        _hasMore &&
+        !_loadingOlder &&
+        !_loadingInitial) {
+      _loadOlder();
+    }
+  }
+
+  Future<void> _loadOlder() async {
+    if (_messages.isEmpty) return;
+    setState(() => _loadingOlder = true);
+    final oldest = DateTime.parse(_messages.first['created_at']);
+    try {
+      final rows = await _messageService.fetchMessages(widget.friend['id'],
+          limit: _pageSize, before: oldest);
+      if (!mounted) return;
+      final beforeExtent = _scrollController.hasClients
+          ? _scrollController.position.maxScrollExtent
+          : 0.0;
+      setState(() {
+        _messages.insertAll(0, rows.reversed);
+        _hasMore = rows.length == _pageSize;
+        _loadingOlder = false;
+      });
+      _cacheMessages();
+      // Keep the viewport anchored to the same message after prepending older ones.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          final afterExtent = _scrollController.position.maxScrollExtent;
+          _scrollController.jumpTo(
+              _scrollController.position.pixels + (afterExtent - beforeExtent));
+        }
+      });
+    } catch (e) {
+      if (mounted) setState(() => _loadingOlder = false);
+    }
+  }
+
+  void _setupRealtime() {
+    final friendId = widget.friend['id'];
+    final me = _supabase.auth.currentUser?.id;
+    _channel = _supabase
+        .channel('messages_${me}_$friendId')
+        .onPostgresChanges(
+            event: PostgresChangeEvent.insert,
+            schema: 'public',
+            table: 'messages',
+            callback: _onRealtimeInsert)
+        .onPostgresChanges(
+            event: PostgresChangeEvent.update,
+            schema: 'public',
+            table: 'messages',
+            callback: _onRealtimeUpdate)
+        .onPostgresChanges(
+            event: PostgresChangeEvent.delete,
+            schema: 'public',
+            table: 'messages',
+            callback: _onRealtimeDelete)
+        .subscribe();
+  }
+
+  bool _belongsToConvo(Map<String, dynamic> m) {
+    final me = _supabase.auth.currentUser?.id;
+    final f = widget.friend['id'];
+    final s = m['sender_id'], r = m['receiver_id'];
+    return (s == me && r == f) || (s == f && r == me);
+  }
+
+  bool _isNearBottom() {
+    if (!_scrollController.hasClients) return true;
+    return _scrollController.position.maxScrollExtent -
+            _scrollController.position.pixels <
+        200;
+  }
+
+  void _onRealtimeInsert(PostgresChangePayload payload) {
+    final m = payload.newRecord;
+    if (!_belongsToConvo(m) || _messages.any((x) => x['id'] == m['id'])) return;
+    final atBottom = _isNearBottom();
+    setState(() => _messages.add(m));
+    _cacheMessages();
+    final me = _supabase.auth.currentUser?.id;
+    if (m['sender_id'] != me) {
+      // Incoming while the thread is open → mark read immediately.
+      _messageService.markAsRead(m['id']);
+    }
+    if (atBottom) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    }
+  }
+
+  void _onRealtimeUpdate(PostgresChangePayload payload) {
+    final m = payload.newRecord;
+    if (!_belongsToConvo(m)) return;
+    final i = _messages.indexWhere((x) => x['id'] == m['id']);
+    if (i != -1) {
+      setState(() => _messages[i] = m);
+      _cacheMessages();
+    }
+  }
+
+  void _onRealtimeDelete(PostgresChangePayload payload) {
+    final id = payload.oldRecord['id'];
+    if (id == null) return;
+    final i = _messages.indexWhere((x) => x['id'] == id);
+    if (i != -1) {
+      setState(() => _messages.removeAt(i));
+      _cacheMessages();
+    }
+    if (_pinnedMessage?['id'] == id) setState(() => _pinnedMessage = null);
   }
 
   Future<void> _markMessagesAsRead() async {
@@ -582,8 +740,14 @@ class _MessageScreenState extends State<MessageScreen>
               Navigator.pop(ctx);
               try {
                 await _messageService.deleteMessage(messageId);
-                if (_pinnedMessage?['id'] == messageId) {
-                  setState(() => _pinnedMessage = null);
+                if (mounted) {
+                  setState(() {
+                    _messages.removeWhere((m) => m['id'] == messageId);
+                    if (_pinnedMessage?['id'] == messageId) {
+                      _pinnedMessage = null;
+                    }
+                  });
+                  _cacheMessages();
                 }
                 _showSuccessSnackbar('Message deleted');
               } catch (e) {
@@ -668,18 +832,26 @@ class _MessageScreenState extends State<MessageScreen>
                         fontSize: 16, fontWeight: FontWeight.w600),
                     overflow: TextOverflow.ellipsis,
                   ),
-                  Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                            color: Colors.green, shape: BoxShape.circle),
-                      ),
-                      const SizedBox(width: 6),
-                      const Text('Online',
-                          style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    ],
+                  ValueListenableBuilder<Set<String>>(
+                    valueListenable: PresenceService.instance.online,
+                    builder: (_, ids, __) {
+                      final isOnline = ids.contains(widget.friend['id']);
+                      return Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                                color: isOnline ? Colors.green : Colors.grey,
+                                shape: BoxShape.circle),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(isOnline ? 'Online' : 'Offline',
+                              style: const TextStyle(
+                                  fontSize: 12, color: Colors.grey)),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),
@@ -731,153 +903,7 @@ class _MessageScreenState extends State<MessageScreen>
                 colors: [colors.primary.withOpacity(0.03), colors.surface],
               ),
             ),
-            child: StreamBuilder<List<Map<String, dynamic>>>(
-              stream: _messagesStream,
-              builder: (context, snapshot) {
-                if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-                  _cachedMessages = snapshot.data!;
-                }
-
-                if (_cachedMessages.isEmpty) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          SizedBox(
-                              width: 40,
-                              height: 40,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 3, color: colors.primary)),
-                          const SizedBox(height: 16),
-                          Text('Loading messages...',
-                              style: TextStyle(
-                                  color: Colors.grey[500], fontSize: 14)),
-                        ],
-                      ),
-                    );
-                  }
-
-                  if (snapshot.hasError) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                                padding: const EdgeInsets.all(20),
-                                decoration: BoxDecoration(
-                                    color: Colors.red.withOpacity(0.1),
-                                    shape: BoxShape.circle),
-                                child: const Icon(Icons.error_outline_rounded,
-                                    size: 48, color: Colors.redAccent)),
-                            const SizedBox(height: 16),
-                            Text('Couldn\'t load messages',
-                                style: TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.grey[700],
-                                    fontWeight: FontWeight.w500)),
-                            const SizedBox(height: 20),
-                            FilledButton.tonal(
-                                onPressed: () => setState(() {}),
-                                child: const Text('Try Again')),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(40),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                              width: 120,
-                              height: 120,
-                              decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                      color: colors.primary.withOpacity(0.2),
-                                      width: 3)),
-                              child: _buildUserAvatar(radius: 50)),
-                          const SizedBox(height: 24),
-                          Text(widget.friend['username'] ?? 'Unknown',
-                              style: const TextStyle(
-                                  fontSize: 24, fontWeight: FontWeight.w700)),
-                          const SizedBox(height: 8),
-                          Text('Say hello! 👋',
-                              style: TextStyle(
-                                  fontSize: 15, color: Colors.grey[600])),
-                          const SizedBox(height: 6),
-                          Text(
-                              'Send your first message to start the conversation',
-                              style: TextStyle(
-                                  fontSize: 13, color: Colors.grey[500]),
-                              textAlign: TextAlign.center),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-
-                if (!_initialScrollDone) {
-                  _initialScrollDone = true;
-                  WidgetsBinding.instance
-                      .addPostFrameCallback((_) => _scrollToBottomInstant());
-                } else {
-                  WidgetsBinding.instance
-                      .addPostFrameCallback((_) => _scrollToBottom());
-                }
-
-                return ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  itemCount: _cachedMessages.length,
-                  itemBuilder: (context, index) {
-                    final message = _cachedMessages[index];
-                    final isMe = message['sender_id'] == currentUserId;
-                    final showAvatar = index == 0 ||
-                        _cachedMessages[index - 1]['sender_id'] !=
-                            message['sender_id'];
-                    final createdAt = message['created_at'] != null
-                        ? DateTime.parse(message['created_at']).toLocal()
-                        : null;
-
-                    Widget? dateSeparator;
-                    if (createdAt != null) {
-                      if (index == 0) {
-                        dateSeparator = _buildDateSeparator(createdAt);
-                      } else {
-                        final prevCreatedAt = _cachedMessages[index - 1]
-                                    ['created_at'] !=
-                                null
-                            ? DateTime.parse(
-                                    _cachedMessages[index - 1]['created_at'])
-                                .toLocal()
-                            : null;
-                        if (prevCreatedAt == null ||
-                            !_isSameDay(createdAt, prevCreatedAt)) {
-                          dateSeparator = _buildDateSeparator(createdAt);
-                        }
-                      }
-                    }
-
-                    return Column(children: [
-                      if (dateSeparator != null) dateSeparator,
-                      _buildMessageBubble(
-                          message: message,
-                          isMe: isMe,
-                          showAvatar: showAvatar,
-                          timestamp: createdAt,
-                          isLast: index == _cachedMessages.length - 1),
-                    ]);
-                  },
-                );
-              },
-            ),
+            child: _buildMessageList(colors, currentUserId),
           ),
         ),
 
@@ -922,6 +948,113 @@ class _MessageScreenState extends State<MessageScreen>
     );
   }
 
+  // ─── Message list (paginated) ───────────────────────────────────────────────
+  Widget _buildMessageList(ColorScheme colors, String? currentUserId) {
+    if (_loadingInitial) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+                width: 40,
+                height: 40,
+                child: CircularProgressIndicator(
+                    strokeWidth: 3, color: colors.primary)),
+            const SizedBox(height: 16),
+            Text('Loading messages...',
+                style: TextStyle(color: Colors.grey[500], fontSize: 14)),
+          ],
+        ),
+      );
+    }
+
+    if (_messages.isEmpty) return _buildEmptyState(colors);
+
+    final headerCount = _loadingOlder ? 1 : 0;
+    return ListView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      itemCount: _messages.length + headerCount,
+      itemBuilder: (context, rawIndex) {
+        if (headerCount == 1 && rawIndex == 0) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(
+                child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2))),
+          );
+        }
+        final index = rawIndex - headerCount;
+        final message = _messages[index];
+        final isMe = message['sender_id'] == currentUserId;
+        final showAvatar = index == 0 ||
+            _messages[index - 1]['sender_id'] != message['sender_id'];
+        final createdAt = message['created_at'] != null
+            ? DateTime.parse(message['created_at']).toLocal()
+            : null;
+
+        Widget? dateSeparator;
+        if (createdAt != null) {
+          if (index == 0) {
+            dateSeparator = _buildDateSeparator(createdAt);
+          } else {
+            final prevCreatedAt = _messages[index - 1]['created_at'] != null
+                ? DateTime.parse(_messages[index - 1]['created_at']).toLocal()
+                : null;
+            if (prevCreatedAt == null ||
+                !_isSameDay(createdAt, prevCreatedAt)) {
+              dateSeparator = _buildDateSeparator(createdAt);
+            }
+          }
+        }
+
+        return Column(children: [
+          if (dateSeparator != null) dateSeparator,
+          _buildMessageBubble(
+              message: message,
+              isMe: isMe,
+              showAvatar: showAvatar,
+              timestamp: createdAt,
+              isLast: index == _messages.length - 1),
+        ]);
+      },
+    );
+  }
+
+  Widget _buildEmptyState(ColorScheme colors) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                        color: colors.primary.withOpacity(0.2), width: 3)),
+                child: _buildUserAvatar(radius: 50)),
+            const SizedBox(height: 24),
+            Text(widget.friend['username'] ?? 'Unknown',
+                style:
+                    const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Text('Say hello! 👋',
+                style: TextStyle(fontSize: 15, color: Colors.grey[600])),
+            const SizedBox(height: 6),
+            Text('Send your first message to start the conversation',
+                style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ─── Pinned message banner ──────────────────────────────────────────────────
   Widget _buildPinnedBanner(ColorScheme colors) {
     final content = _pinnedMessage!['content'] ?? '';
@@ -930,7 +1063,7 @@ class _MessageScreenState extends State<MessageScreen>
     return GestureDetector(
       onTap: () {
         final idx =
-            _cachedMessages.indexWhere((m) => m['id'] == _pinnedMessage!['id']);
+            _messages.indexWhere((m) => m['id'] == _pinnedMessage!['id']);
         if (idx != -1 && _scrollController.hasClients) {
           _scrollController.animateTo(
             idx * 80.0,
@@ -1219,7 +1352,7 @@ class _MessageScreenState extends State<MessageScreen>
                   Padding(
                       padding: const EdgeInsets.only(top: 4, left: 8, right: 8),
                       child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Text(timeago.format(timestamp),
+                        Text(DateFormat('h:mm a').format(timestamp),
                             style: TextStyle(
                                 fontSize: 11, color: Colors.grey[500])),
                         if (isMe) ...[
@@ -1403,6 +1536,8 @@ class _MessageScreenState extends State<MessageScreen>
 
   @override
   void dispose() {
+    _channel?.unsubscribe();
+    _scrollController.removeListener(_onScroll);
     _messageController.dispose();
     _scrollController.dispose();
     _messageFocusNode.dispose();

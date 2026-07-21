@@ -167,9 +167,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           .eq('id', user.id);
 
       if (mounted) {
-        Navigator.pushReplacement(
+        Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => const CustomBottomNavBar()),
+          (route) => false,
         );
       }
     } catch (e) {

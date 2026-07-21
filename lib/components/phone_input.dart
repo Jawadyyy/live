@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
+import 'package:live/screens/auth/auth_ui.dart';
 
 class PhoneForm extends StatefulWidget {
   final Function(String) onPhoneChanged;
@@ -25,46 +26,32 @@ class _PhoneFormState extends State<PhoneForm> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final hintColor = theme.colorScheme.onSurface.withOpacity(0.4);
-    final borderColor = theme.colorScheme.onSurface.withOpacity(0.1);
+    OutlineInputBorder border(Color c, [double w = 1.5]) => OutlineInputBorder(
+          borderRadius: BorderRadius.circular(kAuthRadius),
+          borderSide: BorderSide(color: c, width: w),
+        );
 
     return IntlPhoneField(
       controller: _phoneController,
       focusNode: _phoneFocusNode,
-      style: TextStyle(color: theme.colorScheme.onSurface),
+      cursorColor: AuthColors.accentLight,
+      style: const TextStyle(color: AuthColors.text, fontSize: 15),
+      dropdownTextStyle: const TextStyle(color: AuthColors.text, fontSize: 15),
+      dropdownIcon: const Icon(
+        Icons.keyboard_arrow_down_rounded,
+        color: AuthColors.muted,
+      ),
       decoration: InputDecoration(
-        labelText: widget.label,
-        hintText: widget.hintText,
-        hintStyle: TextStyle(color: hintColor),
-        prefixIcon: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Icon(Icons.phone_outlined, size: 24, color: hintColor),
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: borderColor),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: borderColor),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: theme.primaryColor, width: 2),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: theme.colorScheme.error),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: theme.colorScheme.error, width: 2),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 16,
-        ),
+        hintText: widget.hintText ?? 'Phone number',
+        hintStyle: const TextStyle(color: AuthColors.muted, fontSize: 15),
+        filled: true,
+        fillColor: AuthColors.field,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        enabledBorder: border(AuthColors.fieldBorder),
+        focusedBorder: border(AuthColors.accent),
+        errorBorder: border(AuthColors.pink),
+        focusedErrorBorder: border(AuthColors.pink),
       ),
       initialCountryCode: 'PK',
       onChanged: (phone) {

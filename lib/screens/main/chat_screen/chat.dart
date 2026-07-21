@@ -7,6 +7,7 @@ import 'package:live/screens/main/chat_screen/message_screen/message_screen.dart
 import 'package:live/screens/main/chat_screen/message_screen/message_service/message_service.dart';
 import 'package:provider/provider.dart';
 import 'package:live/screens/main/controllers/friends_controller.dart';
+import 'package:live/services/presence_service.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -538,25 +539,34 @@ class _ChatListItemState extends State<_ChatListItem>
             ),
           ),
         ),
-        AnimatedBuilder(
-          animation: _pulseController,
-          builder: (_, __) => Container(
-            width: 14,
-            height: 14,
-            decoration: BoxDecoration(
-              color: Colors.green,
-              shape: BoxShape.circle,
-              border: Border.all(color: theme.cardColor, width: 2.5),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.green
-                      .withOpacity(0.5 + (0.3 * _pulseController.value)),
-                  blurRadius: 6 + (4 * _pulseController.value),
-                  spreadRadius: 1 * _pulseController.value,
-                )
-              ],
-            ),
-          ),
+        // Online dot — shown only while the friend is actually online.
+        ValueListenableBuilder<Set<String>>(
+          valueListenable: PresenceService.instance.online,
+          builder: (_, ids, __) {
+            if (!ids.contains(widget.friend['id'])) {
+              return const SizedBox.shrink();
+            }
+            return AnimatedBuilder(
+              animation: _pulseController,
+              builder: (_, __) => Container(
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: theme.cardColor, width: 2.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.green
+                          .withOpacity(0.5 + (0.3 * _pulseController.value)),
+                      blurRadius: 6 + (4 * _pulseController.value),
+                      spreadRadius: 1 * _pulseController.value,
+                    )
+                  ],
+                ),
+              ),
+            );
+          },
         ),
       ],
     );

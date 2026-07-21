@@ -46,3 +46,6 @@ app.*.map.json
 
 # Google OAuth client secrets — never commit
 client_secret_*.json
+
+# Local project notes/roadmap
+CLAUDE.md

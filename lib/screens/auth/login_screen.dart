@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:live/auth/auth_service.dart';
 import 'package:live/components/bottom_nav.dart';
-import 'package:live/components/text_field.dart';
+import 'package:live/screens/auth/auth_ui.dart';
 import 'package:live/screens/auth/forgot_pass_screen.dart';
 import 'package:live/screens/auth/signup_screen.dart';
 import 'package:live/screens/main/profile_screen/profile_setup.dart';
@@ -19,7 +19,18 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
-  final Color brandColor = const Color(0xFF7C56E1);
+
+  void _goToApp(Map<String, dynamic>? profile) {
+    final destination =
+        (profile != null && profile['is_profile_complete'] == false)
+            ? const ProfileSetupScreen()
+            : const CustomBottomNavBar();
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => destination),
+      (route) => false,
+    );
+  }
 
   Future<void> login() async {
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
@@ -39,18 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (response.session != null && mounted) {
         final profile = await authService.fetchUserProfile();
-
-        if (profile != null && profile['is_profile_complete'] == false) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const ProfileSetupScreen()),
-          );
-        } else {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const CustomBottomNavBar()),
-          );
-        }
+        if (mounted) _goToApp(profile);
       }
     } catch (e) {
       if (mounted) {
@@ -68,275 +68,199 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _googleLogin() async {
+    final success = await authService.signInWithGoogle();
+    if (!mounted) return;
+    if (success) {
+      final profile = await authService.fetchUserProfile();
+      if (mounted) _goToApp(profile);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Google sign-in failed')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final size = MediaQuery.of(context).size;
-
     return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.symmetric(
-            horizontal: size.width > 600 ? size.width * 0.2 : 24,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 40),
-              // Brand Header
-              Center(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.forum, color: brandColor, size: 32),
-                    const SizedBox(width: 8),
-                    Text(
-                      'LIVE',
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: brandColor,
-                        fontSize: 32,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 30),
-              Text(
-                'Welcome Back',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Login to continue to your account',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.6),
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              // Email Field
-              CustomTextField(
-                controller: _emailController,
-                label: 'Email',
-                hintText: 'your@email.com',
-                keyboardType: TextInputType.emailAddress,
-                prefixIcon: Icons.email_outlined,
-              ),
-              const SizedBox(height: 16),
-
-              // Password Field
-              CustomTextField(
-                controller: _passwordController,
-                label: 'Password',
-                hintText: 'Enter your password',
-                obscureText: _obscurePassword,
-                prefixIcon: Icons.lock_outline,
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscurePassword ? Icons.visibility : Icons.visibility_off,
-                    color: theme.colorScheme.onSurface.withOpacity(0.4),
-                  ),
-                  onPressed: () {
-                    setState(() => _obscurePassword = !_obscurePassword);
-                  },
-                ),
-              ),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ForgotPasswordScreen(),
-                      ),
-                    );
-                  },
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: Text(
-                    'Forgot Password?',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: brandColor,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Login Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : login,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    backgroundColor: brandColor,
-                    elevation: 2,
-                  ),
-                  child:
-                      _isLoading
-                          ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation(Colors.white),
-                            ),
-                          )
-                          : Text(
-                            'Login',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Divider with "OR"
-              Row(
+      backgroundColor: AuthColors.sheet,
+      body: Column(
+        children: [
+          // Hero gradient — extends toward the middle of the screen
+          Container(
+            height: size.height * 0.30,
+            width: double.infinity,
+            decoration: const BoxDecoration(gradient: kHeroGradient),
+            child: SafeArea(
+              bottom: false,
+              child: Stack(
                 children: [
-                  Expanded(
-                    child: Divider(
-                      color: theme.colorScheme.onSurface.withOpacity(0.1),
-                      thickness: 1,
+                  Positioned(
+                    top: -50,
+                    right: -40,
+                    child: Container(
+                      width: 200,
+                      height: 200,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            Colors.white.withOpacity(0.30),
+                            Colors.white.withOpacity(0),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      'OR',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withOpacity(0.4),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Divider(
-                      color: theme.colorScheme.onSurface.withOpacity(0.1),
-                      thickness: 1,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // Social Login Buttons
-              // Social Login Buttons
-              Column(
-                children: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        debugPrint("Google login pressed");
-
-                        final success = await authService.signInWithGoogle();
-
-                        if (success && context.mounted) {
-                          // Check if user profile is complete
-                          final profile = await authService.fetchUserProfile();
-
-                          if (profile != null &&
-                              profile['is_profile_complete'] == false) {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (context) => const ProfileSetupScreen(),
-                              ),
-                            );
-                          } else {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (context) => const CustomBottomNavBar(),
-                              ),
-                            );
-                          }
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Google sign-in failed'),
-                            ),
-                          );
-                        }
-                      },
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        side: BorderSide(color: Colors.grey.shade300),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        backgroundColor: Colors.white,
-                      ),
-                      icon: Image.asset(
-                        'assets/icons/google.png',
-                        width: 24,
-                        errorBuilder:
-                            (context, error, stackTrace) =>
-                                const Icon(Icons.g_mobiledata),
-                      ),
-                      label: const Text(
-                        'Login with Google',
-                        style: TextStyle(
-                          color: Colors.black87,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // Sign Up Prompt
-              Center(
-                child: TextButton(
-                  onPressed:
-                      () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const SignupScreen(),
-                        ),
-                      ),
-                  child: RichText(
-                    text: TextSpan(
-                      text: 'Don\'t have an account? ',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface.withOpacity(0.6),
-                      ),
+                    padding: const EdgeInsets.fromLTRB(28, 20, 28, 40),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        TextSpan(
-                          text: 'Sign Up',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: brandColor,
-                            fontWeight: FontWeight.bold,
+                        const AuthLogo(),
+                        const SizedBox(height: 22),
+                        const Text(
+                          'Welcome back',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 30,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Log in to continue to your account',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.82),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
                     ),
                   ),
+                ],
+              ),
+            ),
+          ),
+          // Sheet — pulled up so its rounded top curves over the gradient
+          Expanded(
+            child: Transform.translate(
+              offset: const Offset(0, -28),
+              child: _buildSheet(context),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSheet(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: AuthColors.sheet,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(34)),
+        border: Border(top: BorderSide(color: AuthColors.fieldBorder)),
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(26, 28, 26, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AuthField(
+              controller: _emailController,
+              hint: 'Email address',
+              icon: Icons.mail_outline_rounded,
+              keyboardType: TextInputType.emailAddress,
+            ),
+            const SizedBox(height: 14),
+            AuthField(
+              controller: _passwordController,
+              hint: 'Password',
+              icon: Icons.lock_outline_rounded,
+              obscure: _obscurePassword,
+              suffix: IconButton(
+                icon: Icon(
+                  _obscurePassword
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                  color: AuthColors.muted,
+                  size: 20,
+                ),
+                onPressed: () =>
+                    setState(() => _obscurePassword = !_obscurePassword),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ForgotPasswordScreen(),
+                  ),
+                ),
+                child: const Text(
+                  'Forgot password?',
+                  style: TextStyle(
+                    color: AuthColors.accentLight,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-              const SizedBox(height: 20),
-            ],
-          ),
+            ),
+            const SizedBox(height: 18),
+            AuthPrimaryButton(
+              label: 'Log in',
+              loading: _isLoading,
+              onPressed: login,
+            ),
+            const SizedBox(height: 18),
+            const AuthOrDivider(),
+            const SizedBox(height: 18),
+            AuthOutlineButton(
+              label: 'Continue with Google',
+              onPressed: _googleLogin,
+              leading: Image.asset(
+                'assets/icons/google.png',
+                width: 20,
+                height: 20,
+                errorBuilder: (context, error, stackTrace) =>
+                    const Icon(Icons.g_mobiledata, color: Colors.white),
+              ),
+            ),
+            const SizedBox(height: 22),
+            Center(
+              child: GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SignupScreen()),
+                ),
+                child: RichText(
+                  text: const TextSpan(
+                    text: "Don't have an account? ",
+                    style: TextStyle(color: AuthColors.muted2, fontSize: 13.5),
+                    children: [
+                      TextSpan(
+                        text: 'Sign up',
+                        style: TextStyle(
+                          color: AuthColors.accentLight,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

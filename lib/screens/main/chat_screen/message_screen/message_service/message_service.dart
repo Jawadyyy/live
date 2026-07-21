@@ -160,6 +160,30 @@ class MessageService {
     }
   }
 
+  /// Fetch one page of a conversation's history, newest-first.
+  ///
+  /// Pass [before] (the oldest loaded message's `created_at`) to page backwards
+  /// for infinite scroll. Returns up to [limit] rows in descending order; the
+  /// caller reverses them for ascending display.
+  Future<List<Map<String, dynamic>>> fetchMessages(
+    String otherUserId, {
+    int limit = 25,
+    DateTime? before,
+  }) async {
+    final me = _supabase.auth.currentUser?.id;
+    if (me == null) return [];
+    var query = _supabase.from('messages').select().or(
+          'and(sender_id.eq.$me,receiver_id.eq.$otherUserId),'
+          'and(sender_id.eq.$otherUserId,receiver_id.eq.$me)',
+        );
+    if (before != null) {
+      query = query.lt('created_at', before.toIso8601String());
+    }
+    final rows =
+        await query.order('created_at', ascending: false).limit(limit);
+    return List<Map<String, dynamic>>.from(rows);
+  }
+
   Stream<List<Map<String, dynamic>>> getMessagesStream(String otherUserId) {
     final currentUserId = _supabase.auth.currentUser?.id;
     if (currentUserId == null) return Stream.value([]);
