@@ -125,7 +125,12 @@ class _WatchStreamScreenState extends State<WatchStreamScreen> {
             AgoraVideoView(
               controller: VideoViewController.remote(
                 rtcEngine: _streamService.engine!,
-                canvas: VideoCanvas(uid: _remoteUid),
+                // Without an explicit render mode the remote view renders
+                // washed-out/semi-transparent; Hidden fills the view opaquely.
+                canvas: VideoCanvas(
+                  uid: _remoteUid,
+                  renderMode: RenderModeType.renderModeHidden,
+                ),
                 connection:
                     RtcConnection(channelId: widget.streamData['stream_key']),
               ),

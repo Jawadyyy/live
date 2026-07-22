@@ -75,7 +75,16 @@ class _ChatScreenState extends State<ChatScreen>
             }
 
             if (controller.friends.isEmpty) {
-              return _EmptyStateWidget(isDarkMode: isDarkMode, theme: theme);
+              return RefreshIndicator(
+                onRefresh: controller.fetchFriends,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    SizedBox(height: MediaQuery.of(context).size.height * 0.18),
+                    _EmptyStateWidget(isDarkMode: isDarkMode, theme: theme),
+                  ],
+                ),
+              );
             }
 
             final filtered = controller.friends
@@ -94,16 +103,29 @@ class _ChatScreenState extends State<ChatScreen>
                 onClear: () => controller.updateSearch(''),
               ),
               Expanded(
-                child: filtered.isEmpty
-                    ? _NoResultsWidget(isDarkMode: isDarkMode, theme: theme)
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                        itemCount: filtered.length,
-                        itemBuilder: (context, index) => _ChatListItem(
-                          friend: filtered[index],
-                          index: index,
+                child: RefreshIndicator(
+                  onRefresh: controller.fetchFriends,
+                  child: filtered.isEmpty
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            SizedBox(
+                                height:
+                                    MediaQuery.of(context).size.height * 0.12),
+                            _NoResultsWidget(
+                                isDarkMode: isDarkMode, theme: theme),
+                          ],
+                        )
+                      : ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                          itemCount: filtered.length,
+                          itemBuilder: (context, index) => _ChatListItem(
+                            friend: filtered[index],
+                            index: index,
+                          ),
                         ),
-                      ),
+                ),
               ),
             ]);
           },

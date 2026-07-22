@@ -267,72 +267,77 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           ],
         );
       case 3:
+        final cs = Theme.of(context).colorScheme;
         return Column(
           children: [
-            Stack(
-              children: [
-                Container(
-                  width: 140,
-                  height: 140,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primary.withOpacity(0.2),
-                      width: 2,
+            GestureDetector(
+              onTap: _pickImage,
+              child: Stack(
+                children: [
+                  Container(
+                    width: 148,
+                    height: 148,
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [cs.primary, cs.secondary],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: cs.primary.withOpacity(0.35),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
                     ),
-                  ),
-                  child: ClipOval(
-                    child:
-                        _profileImage != null
-                            ? Image.file(
+                    child: ClipOval(
+                      child: _profileImage != null
+                          ? Image.file(
                               File(_profileImage!.path),
                               fit: BoxFit.cover,
                             )
-                            : Container(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.surfaceVariant.withOpacity(0.3),
+                          : Container(
+                              color: cs.surface,
                               child: Icon(
-                                Icons.person,
-                                size: 60,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant.withOpacity(0.5),
+                                Icons.add_a_photo_outlined,
+                                size: 48,
+                                color: cs.primary.withOpacity(0.7),
                               ),
                             ),
+                    ),
                   ),
-                ),
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: GestureDetector(
-                    onTap: _pickImage,
+                  Positioned(
+                    bottom: 2,
+                    right: 2,
                     child: Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(9),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary,
+                        color: cs.primary,
                         shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 6,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
+                        border: Border.all(color: cs.background, width: 3),
                       ),
                       child: Icon(
                         Icons.edit,
-                        size: 20,
-                        color: Theme.of(context).colorScheme.onPrimary,
+                        size: 18,
+                        color: cs.onPrimary,
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 12),
+            Text(
+              _profileImage != null ? 'Tap to change photo' : 'Add a photo',
+              style: TextStyle(
+                fontSize: 13,
+                color: cs.onBackground.withOpacity(0.6),
+              ),
+            ),
+            const SizedBox(height: 28),
             CustomTextField(
               controller: _bioController,
               label: 'Bio',

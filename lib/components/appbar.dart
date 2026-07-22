@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:live/screens/main/controllers/friend_requests_controller.dart';
 import 'package:live/screens/main/notification_screen/notification_screen.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -43,13 +44,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
 
     final combinedActions = [
       ...?actions,
-      IconButton(
-        icon: Icon(
-          Icons.notifications_outlined,
-          color: theme.colorScheme.primary,
-        ),
-        onPressed:
-            onNotificationTap ??
+      _NotificationButton(
+        onTap: onNotificationTap ??
             () {
               Navigator.push(
                 context,
@@ -127,4 +123,51 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize => Size.fromHeight(toolbarHeight);
+}
+
+// Bell icon with a live pending-friend-request count badge.
+class _NotificationButton extends StatefulWidget {
+  final VoidCallback onTap;
+  const _NotificationButton({required this.onTap});
+
+  @override
+  State<_NotificationButton> createState() => _NotificationButtonState();
+}
+
+class _NotificationButtonState extends State<_NotificationButton> {
+  final _controller = FriendRequestsController();
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_onChange);
+    _controller.fetchRequests();
+  }
+
+  void _onChange() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onChange);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final count = _controller.requests.length;
+    return Badge.count(
+      count: count,
+      isLabelVisible: count > 0,
+      child: IconButton(
+        icon: Icon(
+          Icons.notifications_outlined,
+          color: theme.colorScheme.primary,
+        ),
+        onPressed: widget.onTap,
+      ),
+    );
+  }
 }

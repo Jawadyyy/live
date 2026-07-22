@@ -1,11 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeProvider with ChangeNotifier {
+  static const _prefsKey = 'theme_mode';
   ThemeMode _themeMode = ThemeMode.system;
   AnimationController? _animationController;
   late Animation<double> _animation;
 
   ThemeMode get themeMode => _themeMode;
+
+  ThemeProvider() {
+    _load();
+  }
+
+  // Restore the saved choice before first build; stays system if nothing saved.
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(_prefsKey);
+    if (saved != null) {
+      _themeMode = ThemeMode.values.firstWhere(
+        (m) => m.name == saved,
+        orElse: () => ThemeMode.system,
+      );
+      notifyListeners();
+    }
+  }
+
+  Future<void> _save(ThemeMode mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefsKey, mode.name);
+  }
 
   // Light theme with more customization
   ThemeData get lightTheme => ThemeData.light().copyWith(
@@ -163,6 +187,7 @@ class ThemeProvider with ChangeNotifier {
     }
 
     _themeMode = newMode;
+    _save(newMode);
     notifyListeners();
 
     // Clean up after animation
@@ -195,6 +220,7 @@ class ThemeProvider with ChangeNotifier {
     }
 
     _themeMode = mode;
+    _save(mode);
     notifyListeners();
 
     // Clean up after animation

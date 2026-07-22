@@ -124,60 +124,71 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceVariant.withOpacity(0.5),
+        color: colorScheme.surfaceVariant.withOpacity(0.4),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.6)),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 14,
-          ), // consistent height
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: colorScheme.primary.withOpacity(0.1),
+                  color: colorScheme.primary.withOpacity(0.12),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(icon, color: colorScheme.primary, size: 20),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
-                child:
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
                     isEditable
                         ? TextFormField(
-                          controller: controller,
-                          maxLines: 1,
-                          keyboardType: keyboardType,
-                          validator: validator,
-                          decoration: InputDecoration(
-                            hintText: label,
-                            border: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: colorScheme.onSurface,
-                          ),
-                        )
+                            controller: controller,
+                            maxLines: 1,
+                            keyboardType: keyboardType,
+                            validator: validator,
+                            decoration: InputDecoration(
+                              hintText: 'Enter $label',
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: colorScheme.onSurface,
+                            ),
+                          )
                         : Text(
-                          value ?? label,
-                          style: TextStyle(
-                            fontSize: 16,
-                            color:
-                                value != null
-                                    ? colorScheme.onSurface
-                                    : colorScheme.onSurface.withOpacity(0.6),
+                            value ?? label,
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: value != null
+                                  ? colorScheme.onSurface
+                                  : colorScheme.onSurface.withOpacity(0.6),
+                            ),
                           ),
-                        ),
+                  ],
+                ),
               ),
               const SizedBox(width: 8),
               trailing ??

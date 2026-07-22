@@ -10,6 +10,28 @@ class FriendsController extends ChangeNotifier {
   /// Search query typed in the TextField
   String searchQuery = "";
 
+  RealtimeChannel? _channel;
+
+  FriendsController() {
+    // Any friendships change (accept/add/remove) re-pulls the list, so it
+    // stays live without reopening the app.
+    _channel = supabase
+        .channel('public:friendships')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'friendships',
+          callback: (_) => fetchFriends(),
+        )
+        .subscribe();
+  }
+
+  @override
+  void dispose() {
+    if (_channel != null) supabase.removeChannel(_channel!);
+    super.dispose();
+  }
+
   Future<void> fetchFriends() async {
     final currentUserId = supabase.auth.currentUser?.id;
     if (currentUserId == null) return;

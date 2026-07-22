@@ -28,6 +28,7 @@ class _VideoCallScreenState extends State<VideoCallScreen>
     with TickerProviderStateMixin {
   final _callService = AgoraCallService();
   int? _remoteUid;
+  bool _remoteVideoEnabled = true;
   bool _muted = false,
       _cameraOff = false,
       _joined = false,
@@ -111,8 +112,23 @@ class _VideoCallScreenState extends State<VideoCallScreen>
         },
         onUserJoined: (connection, remoteUid, elapsed) {
           if (!mounted) return;
-          setState(() => _remoteUid = remoteUid);
+          setState(() {
+            _remoteUid = remoteUid;
+            _remoteVideoEnabled = true;
+          });
           _scheduleHide();
+        },
+        // Remote toggled their camera while still connected — swap the frozen
+        // last frame for their avatar instead of leaving it stuck.
+        onRemoteVideoStateChanged:
+            (connection, remoteUid, state, reason, elapsed) {
+          if (!mounted) return;
+          final enabled =
+              state != RemoteVideoState.remoteVideoStateStopped &&
+                  state != RemoteVideoState.remoteVideoStateFailed;
+          if (enabled != _remoteVideoEnabled) {
+            setState(() => _remoteVideoEnabled = enabled);
+          }
         },
         onUserOffline: (connection, remoteUid, reason) {
           if (!mounted) return;
@@ -185,7 +201,7 @@ class _VideoCallScreenState extends State<VideoCallScreen>
           fit: StackFit.expand,
           children: [
             // ── Remote video full screen ──────────────────────────────────
-            if (_remoteUid != null)
+            if (_remoteUid != null && _remoteVideoEnabled)
               AgoraVideoView(
                 controller: VideoViewController.remote(
                   rtcEngine: _callService.engine!,
@@ -198,7 +214,8 @@ class _VideoCallScreenState extends State<VideoCallScreen>
                 avatarUrl: widget.friend['avatar_url'],
                 username: widget.friend['username'] ?? '?',
                 pulseAnim: _pulseAnim,
-                statusText: _statusText,
+                statusText: _remoteUid != null ? 'Camera off' : _statusText,
+                showDots: _remoteUid == null,
               ),
 
             // ── Draggable PiP ─────────────────────────────────────────────
@@ -275,12 +292,14 @@ class _WaitingScreen extends StatelessWidget {
   final String username;
   final Animation<double> pulseAnim;
   final String statusText;
+  final bool showDots;
 
   const _WaitingScreen({
     required this.avatarUrl,
     required this.username,
     required this.pulseAnim,
     required this.statusText,
+    this.showDots = true,
   });
 
   @override
@@ -328,7 +347,22 @@ class _WaitingScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 10),
-              _BouncingDots(),
+              if (showDots)
+                _BouncingDots()
+              else
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.videocam_off_rounded,
+                        color: Colors.white54, size: 16),
+                    const SizedBox(width: 6),
+                    Text(
+                      statusText,
+                      style: const TextStyle(
+                          color: Colors.white54, fontSize: 14),
+                    ),
+                  ],
+                ),
             ],
           ),
         ),
