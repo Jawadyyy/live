@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:live/screens/main/controllers/friend_requests_controller.dart';
+import 'package:live/screens/main/controllers/notifications_controller.dart';
 import 'package:live/screens/main/notification_screen/notification_screen.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -125,7 +125,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   Size get preferredSize => Size.fromHeight(toolbarHeight);
 }
 
-// Bell icon with a live pending-friend-request count badge.
+// Bell icon with a live unread-count badge (friend requests + activity).
 class _NotificationButton extends StatefulWidget {
   final VoidCallback onTap;
   const _NotificationButton({required this.onTap});
@@ -135,13 +135,13 @@ class _NotificationButton extends StatefulWidget {
 }
 
 class _NotificationButtonState extends State<_NotificationButton> {
-  final _controller = FriendRequestsController();
+  final _controller = NotificationsController();
 
   @override
   void initState() {
     super.initState();
     _controller.addListener(_onChange);
-    _controller.fetchRequests();
+    _controller.fetch();
   }
 
   void _onChange() {
@@ -151,13 +151,14 @@ class _NotificationButtonState extends State<_NotificationButton> {
   @override
   void dispose() {
     _controller.removeListener(_onChange);
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final count = _controller.requests.length;
+    final count = _controller.unreadCount;
     return Badge.count(
       count: count,
       isLabelVisible: count > 0,

@@ -29,7 +29,7 @@ dependencies:
   path: ^1.9.0
   agora_rtc_engine: ^6.5.3
   permission_handler: ^12.0.1
-  flutter_sound: ^9.30.0
+  flutter_sound: 9.28.0  # 9.29+ needs Dart SDK 3.7.2; pinned for SDK 3.6.x
   shared_preferences: ^2.3.2
 
 dev_dependencies:
