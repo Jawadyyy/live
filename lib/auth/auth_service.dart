@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:live/config/app_config.dart';
+import 'package:live/services/push_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthService {
@@ -55,6 +56,11 @@ class AuthService {
   }
 
   Future<void> signOut() async {
+    // Drop this device's push token first (while the user is still known) so
+    // the next account on this device doesn't inherit their notifications.
+    try {
+      await PushService.removeToken();
+    } catch (_) {}
     await _supabase.auth.signOut();
   }
 
