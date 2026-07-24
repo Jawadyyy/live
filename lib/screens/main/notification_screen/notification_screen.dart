@@ -17,20 +17,19 @@ class _NotificationScreenState extends State<NotificationScreen> {
   static const _purple = Color(0xFF7C56E1);
 
   final _reqs = FriendRequestsController();
-  final _notifs = NotificationsController();
+  final _notifs = NotificationsController(); // shared singleton
 
   @override
   void initState() {
     super.initState();
     _reqs.fetchRequests();
-    // Mark activity read once it's loaded (opening the screen clears the badge).
-    _notifs.fetch().then((_) => _notifs.markAllRead());
+    _notifs.fetch(); // no auto-mark: user controls read state per item
   }
 
   @override
   void dispose() {
     _reqs.dispose();
-    _notifs.dispose();
+    // _notifs is the shared singleton — never dispose it here.
     super.dispose();
   }
 
@@ -49,6 +48,21 @@ class _NotificationScreenState extends State<NotificationScreen> {
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
         ),
+        actions: [
+          AnimatedBuilder(
+            animation: _notifs,
+            builder: (context, _) => TextButton(
+              onPressed:
+                  _notifs.unreadCount > 0 ? () => _notifs.markAllRead() : null,
+              child: Text('Mark all read',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: _notifs.unreadCount > 0 ? _purple : Colors.grey,
+                  )),
+            ),
+          ),
+        ],
       ),
       body: AnimatedBuilder(
         animation: Listenable.merge([_reqs, _notifs]),
@@ -72,7 +86,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
               for (final r in requests)
                 _RequestCard(request: r, isDark: isDark, controller: _reqs),
               for (final n in activity)
-                _ActivityTile(notification: n, isDark: isDark),
+                _ActivityTile(
+                    notification: n, isDark: isDark, controller: _notifs),
             ],
           );
         },
@@ -84,8 +99,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
 class _ActivityTile extends StatelessWidget {
   final Map<String, dynamic> notification;
   final bool isDark;
+  final NotificationsController controller;
 
-  const _ActivityTile({required this.notification, required this.isDark});
+  const _ActivityTile({
+    required this.notification,
+    required this.isDark,
+    required this.controller,
+  });
 
   static const _purple = Color(0xFF7C56E1);
 
@@ -120,6 +140,9 @@ class _ActivityTile extends StatelessWidget {
   }
 
   Future<void> _onTap(BuildContext context) async {
+    // Opening a notification marks it read.
+    controller.setRead(notification['id'] as String, true);
+
     final actor = notification['actor'] as Map<String, dynamic>? ?? {};
     final type = notification['type'];
     final entityId = notification['entity_id'] as String?;
@@ -166,18 +189,26 @@ class _ActivityTile extends StatelessWidget {
     final username = actor['username'] ?? 'Someone';
     final avatarUrl = actor['avatar_url'] as String?;
     final createdAt = DateTime.tryParse(notification['created_at'] ?? '');
+    final isUnread = notification['is_read'] == false;
 
     return GestureDetector(
       onTap: () => _onTap(context),
+      // Long-press toggles read/unread so the user can re-flag anything.
+      onLongPress: () =>
+          controller.setRead(notification['id'] as String, !isUnread),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
+          color: isUnread
+              ? _purple.withOpacity(isDark ? 0.18 : 0.08)
+              : (isDark ? const Color(0xFF1A1A2E) : Colors.white),
           border: Border.all(
-            color: isDark
-                ? Colors.white.withOpacity(0.06)
-                : Colors.black.withOpacity(0.05),
+            color: isUnread
+                ? _purple.withOpacity(0.4)
+                : (isDark
+                    ? Colors.white.withOpacity(0.06)
+                    : Colors.black.withOpacity(0.05)),
           ),
           boxShadow: [
             BoxShadow(
@@ -256,6 +287,16 @@ class _ActivityTile extends StatelessWidget {
                 ],
               ),
             ),
+            if (isUnread)
+              Container(
+                width: 10,
+                height: 10,
+                margin: const EdgeInsets.only(left: 8),
+                decoration: const BoxDecoration(
+                  color: _purple,
+                  shape: BoxShape.circle,
+                ),
+              ),
           ]),
         ),
       ),

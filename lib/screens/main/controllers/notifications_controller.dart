@@ -3,8 +3,22 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Activity feed (likes / comments / messages / live) from the `notifications`
 /// table, plus the pending-friend-request count so one badge covers both.
-/// Mirrors the plain-ChangeNotifier style of friends_controller.dart.
+///
+/// Singleton: the app shows the bell badge on 4 IndexedStack tabs at once, so a
+/// per-widget instance would create 4 realtime channels with the same topic
+/// (they collide and realtime stops firing). One shared instance = one channel,
+/// one source of truth, so every badge + the screen stay in sync live.
 class NotificationsController extends ChangeNotifier {
+  NotificationsController._internal() {
+    _subscribe();
+    fetch();
+  }
+
+  static final NotificationsController instance =
+      NotificationsController._internal();
+
+  factory NotificationsController() => instance;
+
   final supabase = Supabase.instance.client;
 
   List<Map<String, dynamic>> notifications = [];
@@ -18,15 +32,15 @@ class NotificationsController extends ChangeNotifier {
 
   RealtimeChannel? _channel;
 
-  NotificationsController() {
+  void _subscribe() {
     final uid = supabase.auth.currentUser?.id;
     if (uid == null) return;
-    // New notification rows and any friendship change re-pull, keeping the
-    // badge/feed live without reopening the screen.
+    // New/changed notification rows and any friendship change re-pull, keeping
+    // the badge/feed live without reopening the screen.
     _channel = supabase
         .channel('public:notifications')
         .onPostgresChanges(
-          event: PostgresChangeEvent.insert,
+          event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'notifications',
           filter: PostgresChangeFilter(
@@ -45,15 +59,20 @@ class NotificationsController extends ChangeNotifier {
         .subscribe();
   }
 
-  @override
-  void dispose() {
-    if (_channel != null) supabase.removeChannel(_channel!);
-    super.dispose();
+  // ponytail: singleton keeps the channel for the app's life; nothing disposes
+  // it. Add a reset() tied to auth changes if account-switching ships.
+
+  void _recount() {
+    _unreadNotifications =
+        notifications.where((n) => n['is_read'] == false).length;
   }
 
   Future<void> fetch() async {
     final uid = supabase.auth.currentUser?.id;
     if (uid == null) return;
+
+    // Channel may have been skipped if built pre-login; attach now.
+    if (_channel == null) _subscribe();
 
     isLoading = true;
     notifyListeners();
@@ -70,8 +89,7 @@ class NotificationsController extends ChangeNotifier {
           .limit(50);
 
       notifications = List<Map<String, dynamic>>.from(rows);
-      _unreadNotifications =
-          notifications.where((n) => n['is_read'] == false).length;
+      _recount();
 
       final pending = await supabase
           .from('friendships')
@@ -88,8 +106,28 @@ class NotificationsController extends ChangeNotifier {
     }
   }
 
-  /// Mark all activity read (called when the feed opens). Friend requests stay
-  /// counted until acted on.
+  /// Flip a single notification's read state (tap = read, long-press = unread).
+  Future<void> setRead(String id, bool read) async {
+    final n = notifications.firstWhere(
+      (n) => n['id'] == id,
+      orElse: () => {},
+    );
+    if (n.isEmpty || n['is_read'] == read) return;
+
+    n['is_read'] = read;
+    _recount();
+    notifyListeners();
+
+    try {
+      await supabase
+          .from('notifications')
+          .update({'is_read': read}).eq('id', id);
+    } catch (e) {
+      debugPrint('❌ Error updating notification: $e');
+    }
+  }
+
+  /// Mark all activity read. Friend requests stay counted until acted on.
   Future<void> markAllRead() async {
     final uid = supabase.auth.currentUser?.id;
     if (uid == null || _unreadNotifications == 0) return;

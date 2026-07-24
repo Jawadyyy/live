@@ -135,13 +135,13 @@ class _NotificationButton extends StatefulWidget {
 }
 
 class _NotificationButtonState extends State<_NotificationButton> {
+  // Shared singleton — one channel/source of truth across every tab's app bar.
   final _controller = NotificationsController();
 
   @override
   void initState() {
     super.initState();
     _controller.addListener(_onChange);
-    _controller.fetch();
   }
 
   void _onChange() {
@@ -151,7 +151,6 @@ class _NotificationButtonState extends State<_NotificationButton> {
   @override
   void dispose() {
     _controller.removeListener(_onChange);
-    _controller.dispose();
     super.dispose();
   }
 
@@ -162,6 +161,9 @@ class _NotificationButtonState extends State<_NotificationButton> {
     return Badge.count(
       count: count,
       isLabelVisible: count > 0,
+      // Top-left, pulled in tight against the bell.
+      alignment: AlignmentDirectional.topStart,
+      offset: const Offset(6, -2),
       child: IconButton(
         icon: Icon(
           Icons.notifications_outlined,
