@@ -19,10 +19,14 @@ class _StreamScreenState extends State<StreamScreen>
   late TabController _tabController;
   final _supabase = Supabase.instance.client;
 
+  // Accepted-friend ids (+ self); streams are friends-only, mirroring the feed.
+  Future<List<String>>? _allowedIds;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _allowedIds = _fetchAllowedIds();
   }
 
   @override
@@ -31,12 +35,36 @@ class _StreamScreenState extends State<StreamScreen>
     super.dispose();
   }
 
-  Stream<List<Map<String, dynamic>>> _streamsStream(String status) {
+  Future<List<String>> _fetchAllowedIds() async {
+    final uid = _supabase.auth.currentUser?.id;
+    if (uid == null) return [];
+    try {
+      final friendships = await _supabase
+          .from('friendships')
+          .select('requester_id, addressee_id')
+          .eq('status', 'accepted')
+          .or('requester_id.eq.$uid,addressee_id.eq.$uid');
+      final friendIds = friendships.map<String>((f) {
+        return f['requester_id'] == uid
+            ? f['addressee_id'] as String
+            : f['requester_id'] as String;
+      }).toList();
+      return [...friendIds, uid]; // include own streams
+    } catch (_) {
+      return [uid];
+    }
+  }
+
+  Stream<List<Map<String, dynamic>>> _streamsStream(
+      String status, List<String> allowedIds) {
     return _supabase
         .from('streams')
         .stream(primaryKey: ['id'])
         .order('created_at', ascending: false)
-        .map((d) => d.where((s) => s['status'] == status).toList());
+        .map((d) => d
+            .where((s) =>
+                s['status'] == status && allowedIds.contains(s['user_id']))
+            .toList());
   }
 
   @override
@@ -81,18 +109,28 @@ class _StreamScreenState extends State<StreamScreen>
         ),
         const SizedBox(height: 4),
         Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              _StreamList(
-                  stream: _streamsStream('live'),
-                  status: 'live',
-                  isDark: isDark),
-              _StreamList(
-                  stream: _streamsStream('scheduled'),
-                  status: 'scheduled',
-                  isDark: isDark),
-            ],
+          child: FutureBuilder<List<String>>(
+            future: _allowedIds,
+            builder: (context, snap) {
+              if (!snap.hasData) {
+                return const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF7C56E1)));
+              }
+              final ids = snap.data!;
+              return TabBarView(
+                controller: _tabController,
+                children: [
+                  _StreamList(
+                      stream: _streamsStream('live', ids),
+                      status: 'live',
+                      isDark: isDark),
+                  _StreamList(
+                      stream: _streamsStream('scheduled', ids),
+                      status: 'scheduled',
+                      isDark: isDark),
+                ],
+              );
+            },
           ),
         ),
       ]),
@@ -132,10 +170,12 @@ class _StreamList extends StatelessWidget {
           return _EmptyStreams(
             icon:
                 status == 'live' ? Icons.live_tv_rounded : Icons.event_rounded,
-            title: status == 'live' ? 'No live streams' : 'Nothing scheduled',
+            title: status == 'live'
+                ? 'No friends live right now'
+                : 'Nothing scheduled',
             subtitle: status == 'live'
-                ? 'Be the first to go live!'
-                : 'No upcoming streams yet.',
+                ? 'When a friend goes live, it shows up here.'
+                : 'No upcoming streams from friends yet.',
             isDark: isDark,
           );
         }

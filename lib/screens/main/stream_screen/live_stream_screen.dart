@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:live/screens/agora_services/agora_stream_service.dart';
+import 'package:live/screens/main/stream_screen/services/stream_chat_controller.dart';
+import 'package:live/screens/main/stream_screen/widgets/floating_reactions.dart';
+import 'package:live/screens/main/stream_screen/widgets/stream_chat_overlay.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LiveStreamScreen extends StatefulWidget {
@@ -14,11 +17,13 @@ class LiveStreamScreen extends StatefulWidget {
 class _LiveStreamScreenState extends State<LiveStreamScreen> {
   final _streamService = AgoraStreamService();
   final _supabase = Supabase.instance.client;
+  late final StreamChatController _chat;
   bool _joined = false;
   bool _muted = false;
   bool _cameraOff = false;
   bool _isScreenSharing = false;
   bool _isEnding = false;
+  bool _chatOpen = true;
   int _viewerCount = 0;
   Duration _duration = Duration.zero;
   final _stopwatch = Stopwatch();
@@ -26,6 +31,10 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
   @override
   void initState() {
     super.initState();
+    _chat = StreamChatController(
+      streamId: widget.streamData['id'],
+      hostId: widget.streamData['user_id'],
+    );
     _initStream();
     _listenViewerCount();
   }
@@ -107,8 +116,10 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final keyboard = MediaQuery.of(context).viewInsets.bottom;
     return Scaffold(
       backgroundColor: Colors.black,
+      resizeToAvoidBottomInset: false,
       body: Stack(fit: StackFit.expand, children: [
         // Local video preview
         if (_joined &&
@@ -205,6 +216,27 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
                             fontWeight: FontWeight.w600)),
                   ]),
                 ),
+                const SizedBox(width: 8),
+                // Chat toggle
+                GestureDetector(
+                  onTap: () => setState(() => _chatOpen = !_chatOpen),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: _chatOpen
+                          ? const Color(0xFF7C56E1)
+                          : Colors.black45,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Icon(
+                      _chatOpen
+                          ? Icons.chat_bubble_rounded
+                          : Icons.chat_bubble_outline_rounded,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                ),
               ]),
             ),
             Padding(
@@ -225,6 +257,22 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
             ),
           ]),
         ),
+
+        // Viewer reactions float over the broadcaster's view too.
+        FloatingReactions(reactions: _chat.reactions),
+
+        // Streamer chat panel (toggleable), docks above controls / to keyboard.
+        if (_chatOpen)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: keyboard > 0 ? keyboard : 200,
+            child: AnimatedBuilder(
+              animation: _chat,
+              builder: (_, __) =>
+                  StreamChatOverlay(controller: _chat, bottomInset: 0),
+            ),
+          ),
 
         // Bottom controls
         Positioned(
@@ -353,6 +401,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
 
   @override
   void dispose() {
+    _chat.dispose();
     _streamService.dispose();
     super.dispose();
   }
