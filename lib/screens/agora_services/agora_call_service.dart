@@ -11,7 +11,7 @@ class AgoraCallService {
 
   Future<String> _fetchToken(String channelName) async {
     final response = await _supabase.functions.invoke(
-      'agora-token',
+      'agora-stream-token',
       body: {'channelName': channelName, 'uid': 0},
     );
     if (response.data == null) throw Exception('Failed to get token');

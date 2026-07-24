@@ -10,6 +10,7 @@ import 'package:live/screens/theme/theme_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:video_player/video_player.dart';
 import 'package:live/screens/main/home_screen/post_screen/create_post_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -290,7 +291,9 @@ class _PostCard extends StatelessWidget {
                       post['content'].toString().isNotEmpty)
                     _PostContent(content: post['content']),
                   if (post['image_url'] != null)
-                    _PostImage(imageUrl: post['image_url']),
+                    post['media_type'] == 'video'
+                        ? _PostVideo(url: post['image_url'])
+                        : _PostImage(imageUrl: post['image_url']),
                   const SizedBox(height: 12),
                   _PostActions(
                     postId: post['id'],
@@ -426,6 +429,73 @@ class _PostImage extends StatelessWidget {
             child: const Icon(Icons.error),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ==================== POST VIDEO ====================
+// ponytail: tap-to-play, no autoplay (saves data); no chewie dep, video_player only.
+class _PostVideo extends StatefulWidget {
+  final String url;
+  const _PostVideo({required this.url});
+
+  @override
+  State<_PostVideo> createState() => _PostVideoState();
+}
+
+class _PostVideoState extends State<_PostVideo> {
+  late final VideoPlayerController _controller;
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
+      ..initialize().then((_) {
+        if (mounted) setState(() => _ready = true);
+      });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    setState(() {
+      _controller.value.isPlaying ? _controller.pause() : _controller.play();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: !_ready
+            ? Container(
+                height: 200,
+                color: Colors.grey[200],
+                child: const Center(child: CircularProgressIndicator()),
+              )
+            : GestureDetector(
+                onTap: _toggle,
+                child: AspectRatio(
+                  aspectRatio: _controller.value.aspectRatio,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      VideoPlayer(_controller),
+                      if (!_controller.value.isPlaying)
+                        const Icon(Icons.play_circle_fill,
+                            size: 56, color: Colors.white70),
+                    ],
+                  ),
+                ),
+              ),
       ),
     );
   }

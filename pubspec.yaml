@@ -32,6 +32,7 @@ dependencies:
   flutter_sound: 9.28.0  # 9.29+ needs Dart SDK 3.7.2; pinned for SDK 3.6.x
   shared_preferences: ^2.3.2
   cached_network_image: ^3.4.1
+  video_player: ^2.9.2
 
 dev_dependencies:
   flutter_test:

@@ -8,17 +8,15 @@ class CreatePostController extends ChangeNotifier {
   final TextEditingController textController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
 
-  File? selectedImage;
+  File? selectedMedia;
+  String mediaType = 'image'; // 'image' | 'video'
   bool isPosting = false;
   Map<String, dynamic>? existingPost; // For edit mode
 
   CreatePostController({this.existingPost}) {
     if (existingPost != null) {
       textController.text = existingPost!['content'] ?? '';
-      if (existingPost!['image_url'] != null &&
-          existingPost!['image_url'].toString().isNotEmpty) {
-        // Don’t load network image here, just know that an image exists
-      }
+      mediaType = existingPost!['media_type'] ?? 'image';
     }
   }
 
@@ -26,13 +24,25 @@ class CreatePostController extends ChangeNotifier {
   Future<void> pickImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
-      selectedImage = File(image.path);
+      selectedMedia = File(image.path);
+      mediaType = 'image';
       notifyListeners();
     }
   }
 
-  /// Upload image to Supabase Storage and return public URL
-  Future<String?> _uploadImage(File file, String userId) async {
+  /// Pick video from gallery
+  Future<void> pickVideo() async {
+    final XFile? video = await _picker.pickVideo(source: ImageSource.gallery);
+    if (video != null) {
+      selectedMedia = File(video.path);
+      mediaType = 'video';
+      notifyListeners();
+    }
+  }
+
+  /// Upload media (image or video) to Supabase Storage and return public URL.
+  /// Content-type is inferred from the file extension by Supabase Storage.
+  Future<String?> _uploadMedia(File file, String userId) async {
     final fileName =
         "${DateTime.now().millisecondsSinceEpoch}${path.extension(file.path)}";
     final storagePath = "posts/$userId/$fileName";
@@ -59,8 +69,8 @@ class CreatePostController extends ChangeNotifier {
     if (user == null) return "Not logged in";
 
     final text = textController.text.trim();
-    if (text.isEmpty && selectedImage == null && existingPost == null) {
-      return "Write something or add an image!";
+    if (text.isEmpty && selectedMedia == null && existingPost == null) {
+      return "Write something or add media!";
     }
 
     try {
@@ -69,8 +79,8 @@ class CreatePostController extends ChangeNotifier {
 
       String? imageUrl = existingPost?['image_url'];
 
-      if (selectedImage != null) {
-        imageUrl = await _uploadImage(selectedImage!, user.id);
+      if (selectedMedia != null) {
+        imageUrl = await _uploadMedia(selectedMedia!, user.id);
       }
 
       if (existingPost != null) {
@@ -80,6 +90,7 @@ class CreatePostController extends ChangeNotifier {
             .update({
               'content': text,
               'image_url': imageUrl,
+              'media_type': mediaType,
               'updated_at': DateTime.now().toIso8601String(),
             })
             .eq('id', existingPost!['id']);
@@ -89,12 +100,14 @@ class CreatePostController extends ChangeNotifier {
           'user_id': user.id,
           'content': text,
           'image_url': imageUrl,
+          'media_type': mediaType,
           'created_at': DateTime.now().toIso8601String(), // ✅ Important
         });
       }
 
       textController.clear();
-      selectedImage = null;
+      selectedMedia = null;
+      mediaType = 'image';
       existingPost = null;
       isPosting = false;
       notifyListeners();

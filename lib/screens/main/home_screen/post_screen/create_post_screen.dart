@@ -58,31 +58,29 @@ class _CreatePostView extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            // Image Preview / Picker
-            GestureDetector(
-              onTap: controller.pickImage,
-              child: controller.selectedImage != null
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.file(
-                        File(controller.selectedImage!.path),
-                        height: 200,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      ),
-                    )
-                  : (controller.existingPost != null &&
-                          controller.existingPost!['image_url'] != null)
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: Image.network(
-                            controller.existingPost!['image_url'],
-                            height: 200,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          ),
-                        )
-                      : const DottedBorderContainer(),
+            // Media Preview
+            _MediaPreview(controller: controller),
+            const SizedBox(height: 12),
+
+            // Photo / Video picker buttons
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: controller.pickImage,
+                    icon: const Icon(Icons.image_outlined),
+                    label: const Text("Photo"),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: controller.pickVideo,
+                    icon: const Icon(Icons.videocam_outlined),
+                    label: const Text("Video"),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -123,6 +121,60 @@ class _CreatePostView extends StatelessWidget {
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Preview of the picked/existing media. Videos show a placeholder (no player
+/// in the compose screen — kept lightweight); images render inline.
+class _MediaPreview extends StatelessWidget {
+  final CreatePostController controller;
+  const _MediaPreview({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    final picked = controller.selectedMedia;
+    final existingUrl = controller.existingPost?['image_url'];
+
+    Widget wrap(Widget child) => ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: child,
+        );
+
+    if (picked != null) {
+      if (controller.mediaType == 'video') return _videoPlaceholder(context);
+      return wrap(Image.file(File(picked.path),
+          height: 200, width: double.infinity, fit: BoxFit.cover));
+    }
+    if (existingUrl != null && existingUrl.toString().isNotEmpty) {
+      if (controller.mediaType == 'video') return _videoPlaceholder(context);
+      return wrap(Image.network(existingUrl,
+          height: 200, width: double.infinity, fit: BoxFit.cover));
+    }
+    return const DottedBorderContainer();
+  }
+
+  Widget _videoPlaceholder(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      height: 200,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: theme.colorScheme.surfaceContainerHighest,
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.play_circle_fill,
+                size: 48, color: theme.colorScheme.primary),
+            const SizedBox(height: 8),
+            Text("Video selected",
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: theme.colorScheme.primary)),
+          ],
         ),
       ),
     );
