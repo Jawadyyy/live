@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:live/auth/auth_service.dart';
 import 'package:live/components/appbar.dart';
@@ -331,7 +332,8 @@ class _PostHeader extends StatelessWidget {
         CircleAvatar(
           radius: 23,
           backgroundColor: Colors.grey[200],
-          backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl!) : null,
+          backgroundImage:
+              avatarUrl != null ? CachedNetworkImageProvider(avatarUrl!) : null,
           child: avatarUrl == null
               ? Icon(Icons.person, color: Colors.grey[600])
               : null,
@@ -409,19 +411,16 @@ class _PostImage extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: Image.network(
-          imageUrl,
+        child: CachedNetworkImage(
+          imageUrl: imageUrl,
           fit: BoxFit.cover,
           width: double.infinity,
-          loadingBuilder: (context, child, progress) {
-            if (progress == null) return child;
-            return Container(
-              height: 200,
-              color: Colors.grey[200],
-              child: const Center(child: CircularProgressIndicator()),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) => Container(
+          placeholder: (context, url) => Container(
+            height: 200,
+            color: Colors.grey[200],
+            child: const Center(child: CircularProgressIndicator()),
+          ),
+          errorWidget: (context, url, error) => Container(
             height: 200,
             color: Colors.grey[200],
             child: const Icon(Icons.error),
